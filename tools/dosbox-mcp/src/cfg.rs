@@ -16,8 +16,11 @@ pub struct McpConfig {
     #[serde(default = "default_verify_tls")]
     pub verify_tls: bool,
 
-    /// CPU cycles setting (e.g., "30000", "auto", "max")
-    #[serde(default)]
+    /// CPU cycles, pinned for both real and protected mode (default "30000").
+    /// Protected mode must be pinned explicitly: the emulator's own default
+    /// protected rate is the hardcoded 60000 constant, which silently takes
+    /// over once a DOS extender switches to pmode.
+    #[serde(default = "default_cpu_cycles")]
     pub cpu_cycles: Option<String>,
 
     /// Enable secure mode (blocks MOUNT)
@@ -41,13 +44,17 @@ fn default_verify_tls() -> bool {
     true
 }
 
+fn default_cpu_cycles() -> Option<String> {
+    Some("30000".to_string())
+}
+
 impl Default for McpConfig {
     fn default() -> Self {
         Self {
             base_url: default_base_url(),
             timeout_secs: default_timeout(),
             verify_tls: default_verify_tls(),
-            cpu_cycles: None,
+            cpu_cycles: default_cpu_cycles(),
             secure_mode: false,
             display: None,
         }

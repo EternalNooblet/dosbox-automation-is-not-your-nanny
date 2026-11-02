@@ -151,9 +151,12 @@ impl DosBoxLauncher {
         cmd.arg("--set")
             .arg("webserver_token_file=off");
 
-        // Set CPU cycles if specified
+        // Set CPU cycles if specified. Pin protected mode to the same rate:
+        // the emulator's default protected_mode is the hardcoded 60000 constant,
+        // which silently takes over once a DOS extender switches to pmode.
         if let Some(ref cycles) = self.cpu_cycles {
             cmd.arg("--set").arg(format!("cpu_cycles={}", cycles));
+            cmd.arg("--set").arg(format!("cpu_cycles_protected={}", cycles));
         }
 
         // Add extra args

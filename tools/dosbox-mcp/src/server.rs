@@ -133,8 +133,8 @@ impl DosBoxMcpServer {
 
     #[tool(description = "Get CPU register values")]
     async fn get_registers(&self) -> Result<CallToolResult, McpErrorInternal> {
-        // API returns { registers: Registers }
-        let response: serde_json::Value = self.client.get("/cpu/registers").await.map_err(|e| to_mcp_error_ctx("/cpu/registers", e))?;
+        // The emulator exposes registers under GET /cpu/state as { registers: Registers }
+        let response: serde_json::Value = self.client.get("/cpu/state").await.map_err(|e| to_mcp_error_ctx("/cpu/state", e))?;
         let regs = response.get("registers").cloned().unwrap_or(response);
         let content = Content::json(regs).map_err(|e| McpErrorInternal::internal_error(e.to_string(), None))?;
         Ok(CallToolResult::success(vec![content]))
@@ -147,7 +147,7 @@ impl DosBoxMcpServer {
         Ok(CallToolResult::success(vec![content]))
     }
 
-    #[tool(description = "Set CPU cycles (e.g., '5000', 'auto', 'max')")]
+    #[tool(description = "Set CPU cycles for both real and protected mode (integer, 50-2000000)")]
     async fn set_cycles(&self, Parameters(params): Parameters<SetCyclesParams>) -> Result<CallToolResult, McpErrorInternal> {
         let body = json!({ "cycles": params.cycles });
         let result: SetCyclesResponse = self.client.put("/cpu/cycles", &body).await.map_err(|e| to_mcp_error_ctx("/cpu/cycles", e))?;
@@ -479,8 +479,8 @@ impl DosBoxMcpServer {
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct SetCyclesParams {
-    /// CPU cycles value (e.g., "5000", "auto", "max")
-    pub cycles: String,
+    /// CPU cycles value applied to both real and protected mode (integer, 50-2000000)
+    pub cycles: u64,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]

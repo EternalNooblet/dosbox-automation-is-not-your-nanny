@@ -97,6 +97,10 @@ cat > ~/.config/dosbox-automation/dosbox-automation.conf << 'EOF'
 [webserver]
 mount_allowed_bases = /path/to/your/project/root
 mount_allowed_image_roots = /path/to/your/project/root;/path/to/disk/images
+
+[cpu]
+cpu_cycles = 30000
+cpu_cycles_protected = 30000
 EOF
 ```
 
@@ -114,9 +118,9 @@ cat > ~/.config/dosbox-mcp/config.toml << 'EOF'
 base_url = "http://localhost:8386"
 timeout_secs = 30
 verify_tls = true
+cpu_cycles = "30000"
 
 # For graphical apps (not text-mode):
-# cpu_cycles = "30000"
 # display = ":99"
 
 # For secure mode (blocks MOUNT from guest/API):
@@ -141,7 +145,7 @@ Xvfb :99 -screen 0 1024x768x24 &
 ### With Auto-Start (Recommended)
 ```bash
 # Text-mode only (default, no Xvfb needed):
-/full/path/to/dosbox-automation-is-not-your-nanny/tools/dosbox-mcp/target/release/dosbox-mcp --dosbox-bin /full/path/to/dosbox-automation-is-not-your-nanny/build/debug-linux/dosbox-automation
+/full/path/to/dosbox-automation-is-not-your-nanny/tools/dosbox-mcp/target/release/dosbox-mcp --dosbox-bin /full/path/to/dosbox-automation-is-not-your-nanny/build/debug-linux/dosbox-automation --cpu-cycles 30000
 
 # Graphics mode (requires Xvfb :99 running):
 /full/path/to/dosbox-automation-is-not-your-nanny/tools/dosbox-mcp/target/release/dosbox-mcp --dosbox-bin /full/path/to/dosbox-automation-is-not-your-nanny/build/debug-linux/dosbox-automation --display :99 --cpu-cycles 30000
@@ -157,6 +161,8 @@ cd /full/path/to/dosbox-automation-is-not-your-nanny
   --set webserver_port=8386 \
   --set webserver_allow_remote=on \
   --set webserver_token_file=off \
+  --set cpu_cycles=30000 \
+  --set cpu_cycles_protected=30000 \
   --securemode
 
 # Terminal 2: Connect MCP server
@@ -226,7 +232,7 @@ Should return your configured `mount_allowed_bases` paths.
 | `dosbox-automation binary not found` | Use `--dosbox-bin /full/path/to/binary` |
 | `Connection refused` | Check port 8386 free; increase `--timeout-secs` |
 | Black frames in graphics apps | Start Xvfb `:99`, use `--display :99` |
-| 3DS black screen on auto cycles | Use `--cpu-cycles 30000` |
+| 3DS slow start or black screen | Pin both rates: launcher sets `cpu_cycles_protected` alongside `cpu_cycles` (30000); unprotected pmode defaults to 60000 and slows DOS-extender apps |
 | MOUNT blocked | Check `mount_allowed_bases` in primary config; ensure `--secure-mode` is off |
 | `libiir.so not found` | Build with `-DOPT_FETCH_DEPS=ON` or set `LD_LIBRARY_PATH` |
 
@@ -269,7 +275,7 @@ cmake --preset debug-linux -DOPT_FETCH_DEPS=ON && \
 cmake --build build/debug-linux -- -j$(nproc) && \
 cd tools/dosbox-mcp && cargo build --release && \
 mkdir -p ~/.config/dosbox-automation && \
-echo -e "[webserver]\nmount_allowed_bases = $PWD/../..\nmount_allowed_image_roots = $PWD/../.." > ~/.config/dosbox-automation/dosbox-automation.conf && \
+echo -e "[webserver]\nmount_allowed_bases = $PWD/../..\nmount_allowed_image_roots = $PWD/../..\n[cpu]\ncpu_cycles = 30000\ncpu_cycles_protected = 30000" > ~/.config/dosbox-automation/dosbox-automation.conf && \
 mkdir -p ~/.config/dosbox-mcp && \
 echo -e '[default]\nbase_url = "http://localhost:8386"\ndisplay = ":99"\ncpu_cycles = "30000"' > ~/.config/dosbox-mcp/config.toml
 ```

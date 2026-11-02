@@ -35,7 +35,7 @@ base_url = "http://192.168.1.50:8386"
 | `base_url` | string | required | dosbox-automation REST API URL |
 | `timeout_secs` | integer | 30 | Request timeout in seconds |
 | `verify_tls` | boolean | true | Verify TLS certificates |
-| `cpu_cycles` | string | (unset) | CPU cycles setting (e.g., "30000", "auto", "max") |
+| `cpu_cycles` | string | `30000` | CPU cycles, pinned for both real and protected mode |
 | `secure_mode` | boolean | false | Enable secure mode (blocks MOUNT) |
 | `display` | string | (unset) | X11 display (e.g., ":99" for Xvfb). If unset, uses offscreen SDL driver. |
 | `instances` | array | [] | Named instances for multi-server setups |
@@ -58,7 +58,7 @@ Options:
   --auto-start               Auto-start dosbox-automation (default: true)
   --no-auto-start            Don't auto-start, connect to existing
   --working-dir <DIR>        Working directory for dosbox-automation
-  --cpu-cycles <CYCLES>      CPU cycles setting (e.g., "30000", "auto", "max") [env: DOSBOX_CPU_CYCLES]
+  --cpu-cycles <CYCLES>      CPU cycles pinned for both modes (default 30000) [env: DOSBOX_CPU_CYCLES]
   --secure-mode              Enable secure mode (blocks MOUNT, default: false)
   --display <DISPLAY>        X11 display (e.g., ":99" for Xvfb). If unset, uses offscreen SDL driver [env: DOSBOX_DISPLAY]
 
@@ -92,7 +92,7 @@ dosbox-mcp -- -conf /custom/dosbox.conf
 |----------|-------------|
 | `DOSBOX_API_URL` | Base URL for dosbox-automation API |
 | `DOSBOX_AUTOMATION_BIN` | Path to dosbox-automation binary |
-| `DOSBOX_CPU_CYCLES` | CPU cycles setting (e.g., "30000", "auto", "max") |
+| `DOSBOX_CPU_CYCLES` | CPU cycles pinned for both modes (default 30000) |
 | `DOSBOX_DISPLAY` | X11 display (e.g., ":99" for Xvfb) |
 | `DOSBOX_MCP_BASE_URL` | Config override for base_url |
 | `DOSBOX_MCP_TIMEOUT_SECS` | Config override for timeout |
