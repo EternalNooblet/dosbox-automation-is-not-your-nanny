@@ -49,7 +49,7 @@ impl DosBoxLauncher {
         // Try common locations
         let candidates = [
             // Build directory (development)
-            "/home/papa/projects/dosbox-automation-notes/dosbox-automation-is-not-your-nanny/build/release-linux/dosbox",
+            "./build/release-linux/dosbox",
             // System install
             "/usr/local/bin/dosbox-automation",
             "/usr/bin/dosbox-automation",
