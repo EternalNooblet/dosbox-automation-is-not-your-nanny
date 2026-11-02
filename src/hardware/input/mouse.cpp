@@ -767,6 +767,24 @@ void MOUSE_InjectMoved(const float x_rel, const float y_rel)
 	}
 }
 
+void MOUSE_InjectWarp(const float x_abs, const float y_abs)
+{
+	// Absolute warp only makes sense for interfaces with absolute
+	// positioning semantics (the DOS driver). PS/2 and serial are
+	// relative-only devices; their InjectWarp is a no-op default.
+
+	for (const auto interface_id : AllMouseInterfaceIds) {
+		auto& interface = MouseInterface::GetInstance(interface_id);
+		if (interface.IsUsingEvents()) {
+			interface.InjectWarp(x_abs, y_abs);
+		}
+	}
+
+	if (mouse_move_hook) {
+		mouse_move_hook(0.0f, 0.0f, x_abs, y_abs);
+	}
+}
+
 void MOUSE_InjectButton(const MouseButtonId button_id, const bool pressed)
 {
 	// Bypass MOUSE_EventButton which filters by IsUsingHostPointer(),

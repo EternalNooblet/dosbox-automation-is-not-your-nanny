@@ -355,6 +355,7 @@ assert_eq!(frame.hash, expected_hash)
 ```json
 { "type": "key", "key": "KBD_enter", "pressed": true, "t": 0 }
 { "type": "mouse_move", "x_rel": 5.0, "y_rel": -3.0 }
+{ "type": "mouse_move", "x_abs": 400.0, "y_abs": 300.0 }
 { "type": "mouse_button", "button": "left", "pressed": true }
 { "type": "mouse_wheel", "delta": 1.0 }
 ```

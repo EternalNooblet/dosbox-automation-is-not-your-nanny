@@ -105,6 +105,7 @@ static bool delay_finished = true;
 static bool use_relative = true;
 // true = force relative mode for the next move_cursor() call (API inject)
 static bool force_relative_next = false;
+static bool force_absolute_next = false;
 // true = no host mouse acceleration pre-applied
 static bool is_input_raw = true;
 
@@ -1350,7 +1351,14 @@ static uint8_t move_cursor()
 	const auto old_mickey_x = state.GetMickeyCounterX();
 	const auto old_mickey_y = state.GetMickeyCounterY();
 
-	if (use_relative || force_relative_next) {
+	if (force_absolute_next) {
+		// API warp: position the guest cursor at absolute coordinates
+		// even when the guest asked for relative mode. Mickey counters
+		// stay untouched; position-polling guests (INT 33 fn 3) see the
+		// new position immediately.
+		force_absolute_next = false;
+		move_cursor_seamless(0.0f, 0.0f, pending.x_abs, pending.y_abs);
+	} else if (use_relative || force_relative_next) {
 		force_relative_next = false;
 		move_cursor_captured(MOUSE_ClampRelativeMovement(pending.x_rel),
 		                     MOUSE_ClampRelativeMovement(pending.y_rel));
@@ -1556,6 +1564,20 @@ void MOUSEDOS_InjectRelativeMoved(const float x_rel, const float y_rel)
 	pending.y_rel = MOUSE_ClampRelativeMovement(pending.y_rel + y_rel);
 
 	force_relative_next     = true;
+	pending.has_mouse_moved = true;
+	maybe_trigger_event();
+}
+
+void MOUSEDOS_InjectAbsoluteMoved(const float x_abs, const float y_abs)
+{
+	// Warp the guest cursor to absolute host-screen coordinates. Same
+	// safety profile as MOUSEDOS_InjectRelativeMoved: only pending state
+	// and flags are touched here; guest driver state is updated later in
+	// move_cursor(), in a proper guest context.
+	pending.x_abs = x_abs;
+	pending.y_abs = y_abs;
+
+	force_absolute_next     = true;
 	pending.has_mouse_moved = true;
 	maybe_trigger_event();
 }

@@ -138,6 +138,7 @@ public:
 	void NotifyMoved(const float x_rel, const float y_rel,
 	                 const float x_abs, const float y_abs) override;
 	void InjectMoved(const float x_rel, const float y_rel) override;
+	void InjectWarp(const float x_abs, const float y_abs) override;
 	void NotifyButton(const MouseButtonId id, const bool pressed) override;
 	void NotifyWheel(const float w_rel) override;
 	void NotifyBooting() override;
@@ -349,6 +350,8 @@ void MouseInterface::InjectMoved(const float x_rel, const float y_rel)
 {
 	NotifyMoved(x_rel, y_rel, 0, 0);
 }
+
+void MouseInterface::InjectWarp(const float, const float) {}
 
 void MouseInterface::NotifyButton(const MouseButtonId, const bool) {}
 
@@ -623,6 +626,13 @@ void InterfaceDos::InjectMoved(const float x_rel, const float y_rel)
 {
 	MOUSEDOS_InjectRelativeMoved(x_rel * sensitivity_coeff_x,
 	                             y_rel * sensitivity_coeff_y);
+}
+
+void InterfaceDos::InjectWarp(const float x_abs, const float y_abs)
+{
+	// Absolute warp is a direct host-screen->guest-screen mapping;
+	// sensitivity scaling does not apply.
+	MOUSEDOS_InjectAbsoluteMoved(x_abs, y_abs);
 }
 
 void InterfaceDos::NotifyButton(const MouseButtonId button_id, const bool pressed)

@@ -64,11 +64,11 @@ cd dosbox-automation-is-not-your-nanny
 ## 3. Build dosbox-automation (C++)
 
 ```bash
-cmake --preset debug-linux -DOPT_FETCH_DEPS=ON
-cmake --build build/debug-linux -- -j$(nproc)
+cmake --preset release-linux -DOPT_FETCH_DEPS=ON
+cmake --build build/release-linux -- -j$(nproc)
 ```
 
-**Binary location**: `build/debug-linux/dosbox-automation`
+**Binary location**: `build/release-linux/dosbox-automation`
 
 ---
 
@@ -142,60 +142,39 @@ Xvfb :99 -screen 0 1024x768x24 &
 
 ## 8. Run dosbox-mcp
 
-### With Auto-Start (Recommended)
-```bash
-# Text-mode only (default, no Xvfb needed):
-/full/path/to/dosbox-automation-is-not-your-nanny/tools/dosbox-mcp/target/release/dosbox-mcp --dosbox-bin /full/path/to/dosbox-automation-is-not-your-nanny/build/debug-linux/dosbox-automation --cpu-cycles 30000
+Run it with zero arguments — auto-start handles everything:
 
-# Graphics mode (requires Xvfb :99 running):
-/full/path/to/dosbox-automation-is-not-your-nanny/tools/dosbox-mcp/target/release/dosbox-mcp --dosbox-bin /full/path/to/dosbox-automation-is-not-your-nanny/build/debug-linux/dosbox-automation --display :99 --cpu-cycles 30000
+```bash
+# From the repo root (text mode; binary found in ./build/release-linux/,
+# libiir LD_LIBRARY_PATH set for the child automatically):
+/home/papa/dosbox-automation-is-not-your-nanny/tools/dosbox-mcp/target/release/dosbox-mcp
 ```
 
-### Without Auto-Start (Connect to Existing)
-```bash
-# Terminal 1: Start dosbox-automation manually
-cd /full/path/to/dosbox-automation-is-not-your-nanny
-./build/debug-linux/dosbox-automation --noprimaryconf --noautoexec \
-  --set webserver_enabled=on \
-  --set webserver_bind_address=0.0.0.0 \
-  --set webserver_port=8386 \
-  --set webserver_allow_remote=on \
-  --set webserver_token_file=off \
-  --set cpu_cycles=30000 \
-  --set cpu_cycles_protected=30000 \
-  --securemode
+For graphical DOS apps, start Xvfb and set `display = ":99"` in `~/.config/dosbox-mcp/config.toml` (section 6) — no CLI flags needed.
 
-# Terminal 2: Connect MCP server
-/full/path/to/dosbox-automation-is-not-your-nanny/tools/dosbox-mcp/target/release/dosbox-mcp --no-auto-start --base-url http://localhost:8386
-```
+The server also attaches to an already-running instance at its `base_url`, so launching a second server is never required for a second agent.
 
 ---
 
 ## 9. Register with Hermes
 
-Add to Hermes MCP config (e.g., `~/.hermes/mcp_servers.json`):
+Add to Hermes MCP config (e.g., `~/.hermes/mcp_servers.json`) with no arguments:
 ```json
 {
   "mcpServers": {
     "dosbox-mcp": {
-      "command": "/full/path/to/dosbox-automation-is-not-your-nanny/tools/dosbox-mcp/target/release/dosbox-mcp",
-      "args": [
-        "--dosbox-bin",
-        "/full/path/to/dosbox-automation-is-not-your-nanny/build/debug-linux/dosbox-automation",
-        "--display",
-        ":99",
-        "--cpu-cycles",
-        "30000"
-      ],
-      "env": {
-        "DOSBOX_MCP_BASE_URL": "http://localhost:8386"
-      }
+      "command": "/home/papa/dosbox-automation-is-not-your-nanny/tools/dosbox-mcp/target/release/dosbox-mcp",
+      "args": []
     }
   }
 }
 ```
 
-**Adjust paths** to match your actual installation locations.
+If Hermes spawns the server outside the repo root, install the binary where auto-start can find it from any working directory:
+
+```bash
+ln -s /home/papa/dosbox-automation-is-not-your-nanny/build/release-linux/dosbox-automation ~/.local/bin/dosbox-automation
+```
 
 ---
 
@@ -229,12 +208,12 @@ Should return your configured `mount_allowed_bases` paths.
 
 | Issue | Fix |
 |-------|-----|
-| `dosbox-automation binary not found` | Use `--dosbox-bin /full/path/to/binary` |
-| `Connection refused` | Check port 8386 free; increase `--timeout-secs` |
-| Black frames in graphics apps | Start Xvfb `:99`, use `--display :99` |
+| `dosbox-automation binary not found` | No binary in the searched locations (`./build/release-linux/`, `/usr/local/bin/`, `/usr/bin/`, `~/.local/bin/`, `PATH`) — build it or install/symlink it there. Flags and env vars are not the fix. |
+| `Connection refused` | Port 8386 is owned by another process, or boot is still in progress (`lsof -i :8386`) |
+| Black frames in graphics apps | Start Xvfb `:99`, set `display = ":99"` in `~/.config/dosbox-mcp/config.toml` |
 | 3DS slow start or black screen | Pin both rates: launcher sets `cpu_cycles_protected` alongside `cpu_cycles` (30000); unprotected pmode defaults to 60000 and slows DOS-extender apps |
 | MOUNT blocked | Check `mount_allowed_bases` in primary config; ensure `--secure-mode` is off |
-| `libiir.so not found` | Build with `-DOPT_FETCH_DEPS=ON` or set `LD_LIBRARY_PATH` |
+| `libiir.so not found` | Launcher auto-detects libiir relative to the binary (following symlinks) and sets `LD_LIBRARY_PATH` for the child; only a system install with libs elsewhere needs manual handling |
 
 ---
 
@@ -258,7 +237,7 @@ Should return your configured `mount_allowed_bases` paths.
 
 | Component | Path (relative to repo root) |
 |-----------|------|
-| dosbox-automation binary | `build/debug-linux/dosbox-automation` |
+| dosbox-automation binary | `build/release-linux/dosbox-automation` |
 | dosbox-mcp binary | `tools/dosbox-mcp/target/release/dosbox-mcp` |
 | Primary mount config | `~/.config/dosbox-automation/dosbox-automation.conf` |
 | dosbox-mcp config | `~/.config/dosbox-mcp/config.toml` |
@@ -271,8 +250,8 @@ Should return your configured `mount_allowed_bases` paths.
 
 ```bash
 cd dosbox-automation-is-not-your-nanny && \
-cmake --preset debug-linux -DOPT_FETCH_DEPS=ON && \
-cmake --build build/debug-linux -- -j$(nproc) && \
+cmake --preset release-linux -DOPT_FETCH_DEPS=ON && \
+cmake --build build/release-linux -- -j$(nproc) && \
 cd tools/dosbox-mcp && cargo build --release && \
 mkdir -p ~/.config/dosbox-automation && \
 echo -e "[webserver]\nmount_allowed_bases = $PWD/../..\nmount_allowed_image_roots = $PWD/../..\n[cpu]\ncpu_cycles = 30000\ncpu_cycles_protected = 30000" > ~/.config/dosbox-automation/dosbox-automation.conf && \
@@ -283,6 +262,5 @@ echo -e '[default]\nbase_url = "http://localhost:8386"\ndisplay = ":99"\ncpu_cyc
 Then start Xvfb and run (from the repo root):
 ```bash
 cd ../.. && Xvfb :99 -screen 0 1024x768x24 &
-"$PWD/tools/dosbox-mcp/target/release/dosbox-mcp" \
-  --dosbox-bin "$PWD/build/debug-linux/dosbox-automation"
+"$PWD/tools/dosbox-mcp/target/release/dosbox-mcp"
 ```

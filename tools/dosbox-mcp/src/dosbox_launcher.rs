@@ -58,7 +58,7 @@ impl DosBoxLauncher {
         // Try common locations
         let candidates = [
             // Build directory (development)
-            "./build/release-linux/dosbox",
+            "./build/release-linux/dosbox-automation",
             // System install
             "/usr/local/bin/dosbox-automation",
             "/usr/bin/dosbox-automation",
@@ -66,7 +66,6 @@ impl DosBoxLauncher {
             &format!("{}/.local/bin/dosbox-automation", std::env::var("HOME").unwrap_or_default()),
             // PATH
             "dosbox-automation",
-            "dosbox",
         ];
 
         for candidate in &candidates {
@@ -81,8 +80,10 @@ impl DosBoxLauncher {
     }
 
     fn find_libiir_path(binary_path: &Path) -> Option<PathBuf> {
-        // Try to find libiir.so relative to the binary
-        if let Some(parent) = binary_path.parent() {
+        // Try to find libiir.so relative to the binary. Canonicalize first so
+        // symlinked installs (~/.local/bin) resolve to the real build directory.
+        let resolved = binary_path.canonicalize().unwrap_or_else(|_| binary_path.to_path_buf());
+        if let Some(parent) = resolved.parent() {
             let candidates = [
                 parent.join("_deps/iir1-build"),
                 parent.join("../_deps/iir1-build"),

@@ -43,6 +43,7 @@ void MOUSEDOS_FinalizeInterrupt();
 void MOUSEDOS_NotifyMoved(const float x_rel, const float y_rel,
                           const float x_abs, const float y_abs);
 void MOUSEDOS_InjectRelativeMoved(const float x_rel, const float y_rel);
+void MOUSEDOS_InjectAbsoluteMoved(const float x_abs, const float y_abs);
 void MOUSEDOS_NotifyButton(const MouseButtons12S buttons_12S);
 void MOUSEDOS_NotifyWheel(const float w_rel);
 
@@ -126,6 +127,11 @@ public:
 	// bypasses absolute position checks and forces relative mode
 	// in the DOS driver. Default delegates to NotifyMoved.
 	virtual void InjectMoved(const float x_rel, const float y_rel);
+
+	// Warp guest cursor to absolute host-screen coordinates via the DOS
+	// driver's seamless positioning, regardless of guest use_relative.
+	// Relative-only interfaces (PS/2, serial) no-op by default.
+	virtual void InjectWarp(const float x_abs, const float y_abs);
 
 	void NotifyInterfaceRate(const uint16_t rate_hz);
 	virtual void NotifyBooting();

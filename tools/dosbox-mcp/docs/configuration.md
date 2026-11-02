@@ -68,21 +68,18 @@ Options:
 ### Examples
 
 ```bash
-# Auto-start with defaults
+# The default — run with zero arguments. Auto-start finds the binary,
+# sets libiir LD_LIBRARY_PATH for the child, and serves on localhost:8386.
 dosbox-mcp
 
-# Connect to existing instance
-dosbox-mcp --no-auto-start --base-url http://localhost:8386
-
-# Custom binary and longer timeout
-dosbox-mcp --dosbox-bin /usr/local/bin/dosbox-automation --timeout-secs 60
-
-# Debug logging
+# Debug logging (only when diagnosing startup)
 dosbox-mcp --log-level debug
 
 # Pass extra args to dosbox-automation
 dosbox-mcp -- -conf /custom/dosbox.conf
 ```
+
+Prefer zero arguments. The options below exist for special setups only.
 
 ---
 
@@ -132,7 +129,7 @@ The `--display :99` (or `DOSBOX_DISPLAY=:99` / `DOSBOX_MCP_DISPLAY=:99`) tells d
 
 When `--auto-start` (default), the server:
 
-1. **Detects binary** — Searches `build/release-linux/`, `/usr/local/bin/`, `PATH`
+1. **Detects binary** — Searches `./build/release-linux/dosbox-automation`, `/usr/local/bin/`, `/usr/bin/`, `~/.local/bin/`, `PATH`
 2. **Finds libraries** — Auto-locates `libiir.so`, sets `LD_LIBRARY_PATH`
 3. **Configures webserver** — Applies defaults:
    ```ini
@@ -147,22 +144,18 @@ When `--auto-start` (default), the server:
 
 ### Customizing Auto-Start
 
+Auto-start needs no configuration: binary detection, `LD_LIBRARY_PATH` for `libiir.so`, webserver settings, and CPU cycles (30000, pinned for both modes) are all handled automatically. Special cases only:
+
 ```bash
-# Specify binary explicitly
-dosbox-mcp --dosbox-bin /path/to/dosbox-automation
-
-# Custom working directory
-dosbox-mcp --working-dir /path/to/working/dir
-
-# Disable auto-start (connect to existing)
-dosbox-mcp --no-auto-start --base-url http://remote-host:8386
-
-# Graphics mode with Xvfb (for graphical apps, not text-mode)
+# Graphics mode with Xvfb (for graphical apps, not text-mode):
+# prefer display = ":99" in ~/.config/dosbox-mcp/config.toml over CLI flags
 Xvfb :99 -screen 0 1024x768x24 &
-dosbox-mcp --display :99 --cpu-cycles 30000
 
 # Enable secure mode (blocks MOUNT from guest/API)
 dosbox-mcp --secure-mode
+
+# Connect to an already-running remote instance (multi-instance setups)
+dosbox-mcp --no-auto-start --base-url http://remote-host:8386
 ```
 
 **Note:** By default (`--secure-mode` off), MOUNT is allowed from both guest commands and API. The mount policy still enforces `mount_allowed_bases` / `mount_allowed_image_roots` from the primary config file.
@@ -211,32 +204,13 @@ verify_tls = true  # Set false for self-signed certs (--no-verify-tls)
 ## Troubleshooting Configuration
 
 ### "dosbox-automation binary not found"
-```bash
-# Specify path explicitly
-dosbox-mcp --dosbox-bin /path/to/dosbox-automation
-
-# Or set env var
-export DOSBOX_AUTOMATION_BIN=/path/to/dosbox-automation
-```
+No binary exists in any searched location (`./build/release-linux/`, `/usr/local/bin/`, `/usr/bin/`, `~/.local/bin/`, `PATH`). Build dosbox-automation from source or install the binary into one of those locations. Do not work around it with flags or env vars — once the binary is in a searched location, zero-argument startup works.
 
 ### "Connection refused" / "Timeout waiting for webserver"
-```bash
-# Check if port 8386 is free
-lsof -i :8386
+Another process owns port 8386, or the emulator is still booting. Check what holds the port (`lsof -i :8386`). If an instance is already running, the server attaches to it.
 
-# Increase timeout
-dosbox-mcp --timeout-secs 60
-
-# Check dosbox-automation logs
-dosbox-mcp --log-level debug
-```
-
-### "ldd: libiir.so not found"
-The launcher auto-detects `libiir.so` from the build directory. If using a system install:
-```bash
-export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
-dosbox-mcp
-```
+### libiir.so
+The launcher auto-detects `libiir.so` relative to the binary's build directory (following symlinks) and sets `LD_LIBRARY_PATH` for the child process. No manual export is needed for build-dir or symlinked installs.
 
 ### Permission denied on disk swap
 Mounts must be within allowed paths (`mount_allowed_bases` / `mount_allowed_image_roots` in primary config).

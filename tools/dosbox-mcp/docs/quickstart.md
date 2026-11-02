@@ -7,7 +7,7 @@ Get running in 3 steps.
 ## Prerequisites
 
 - **Rust 1.70+** — [Install Rust](https://rustup.rs/)
-- **dosbox-automation** — Built from source or installed system-wide
+- **dosbox-automation** — Built from source or installed at one of the locations the server searches automatically: `./build/release-linux/dosbox-automation` (repo build dir), `/usr/local/bin/`, `/usr/bin/`, `~/.local/bin/`, or `PATH`.
 
 ---
 
@@ -50,7 +50,7 @@ Binary: `target/release/dosbox-mcp`
   "mcpServers": {
     "dosbox": {
       "command": "/full/path/to/dosbox-mcp",
-      "args": ["--config", "~/.config/dosbox-mcp/config.toml"]
+      "args": []
     }
   }
 }
@@ -65,17 +65,21 @@ mcpServers:
     args: []
 ```
 
+Pass no arguments. The server reads `~/.config/dosbox-mcp/config.toml` on its own and everything else has sensible defaults.
+
 ---
 
 ## Step 3: Start the Server
 
 ```bash
-# Auto-starts dosbox-automation (recommended)
 dosbox-mcp
-
-# Or connect to existing instance
-dosbox-mcp --no-auto-start --base-url http://localhost:8386
 ```
+
+That single command is the whole startup. With zero arguments the server:
+
+- Auto-starts `dosbox-automation`, finding the binary at the locations listed in Prerequisites
+- Auto-locates `libiir.so` next to the binary's build directory and sets `LD_LIBRARY_PATH` for the child process itself — you never need to export it
+- Configures the automation webserver (`localhost:8386`) and waits for it to become ready
 
 The server runs via stdio — your MCP client will start it automatically when needed.
 
@@ -117,29 +121,13 @@ Binary: /path/to/dosbox
 ## Common Issues
 
 ### "dosbox-automation binary not found"
-```bash
-dosbox-mcp --dosbox-bin /path/to/dosbox-automation
-# or
-export DOSBOX_AUTOMATION_BIN=/path/to/dosbox-automation
-```
+No binary exists in any searched location. Build dosbox-automation from source (repo root: `cmake --preset release-linux -DOPT_FETCH_DEPS=ON && cmake --build build/release-linux`) or install it into `~/.local/bin/` or `/usr/local/bin/`. No CLI flags or environment variables are needed once a binary is in a searched location.
 
 ### "Connection refused" / "Timeout"
-```bash
-# Check port
-lsof -i :8386
+Another process owns port 8386, or the emulator is still booting. Check what holds the port (`lsof -i :8386`); if an instance is already running, the server attaches to it instead of starting a new one.
 
-# Increase timeout
-dosbox-mcp --timeout-secs 60
-
-# Debug logs
-dosbox-mcp --log-level debug
-```
-
-### "libiir.so not found"
-```bash
-export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
-dosbox-mcp
-```
+### Black frames in graphics-mode apps
+Text mode works with zero arguments. Graphical DOS apps need a real X11 display: start `Xvfb :99` and set `display = ":99"` in `~/.config/dosbox-mcp/config.toml`.
 
 ---
 

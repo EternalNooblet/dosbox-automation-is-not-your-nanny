@@ -158,7 +158,12 @@ static void dispatch_input_event(const InputEvent& ev)
 		KEYBOARD_AddKey(static_cast<KBD_KEYS>(ev.key), ev.pressed);
 		break;
 	case InputEvent::Type::MouseMove:
-		MOUSE_InjectMoved(ev.x_rel, ev.y_rel);
+		if (ev.x_rel != 0.0f || ev.y_rel != 0.0f) {
+			MOUSE_InjectMoved(ev.x_rel, ev.y_rel);
+		}
+		if (ev.has_abs) {
+			MOUSE_InjectWarp(ev.x_abs, ev.y_abs);
+		}
 		break;
 	case InputEvent::Type::MouseButton: {
 		auto it = button_name_map.find(ev.button);
@@ -465,6 +470,8 @@ void InputSequenceCommand::Post(const httplib::Request& req, httplib::Response& 
 			ev.y_rel = jev.value("y_rel", 0.0f);
 			ev.x_abs = jev.value("x_abs", 0.0f);
 			ev.y_abs = jev.value("y_abs", 0.0f);
+			// Presence, not value: (0,0) is a legal warp target (top-left).
+			ev.has_abs = jev.contains("x_abs") || jev.contains("y_abs");
 		} else if (type_str == "mouse_button") {
 			ev.type    = InputEvent::Type::MouseButton;
 			ev.button  = jev.value("button", "left");

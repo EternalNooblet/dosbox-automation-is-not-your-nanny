@@ -151,23 +151,29 @@ pub struct DeleteFreezesResponse {
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum InputEvent {
     Key {
+        #[serde(skip_serializing_if = "Option::is_none")]
         t: Option<f64>,
         key: String,
         pressed: bool,
     },
     MouseMove {
+        #[serde(skip_serializing_if = "Option::is_none")]
         t: Option<f64>,
         x_rel: f32,
         y_rel: f32,
+        #[serde(skip_serializing_if = "Option::is_none")]
         x_abs: Option<f32>,
+        #[serde(skip_serializing_if = "Option::is_none")]
         y_abs: Option<f32>,
     },
     MouseButton {
+        #[serde(skip_serializing_if = "Option::is_none")]
         t: Option<f64>,
         button: String, // "left", "right", "middle"
         pressed: bool,
     },
     MouseWheel {
+        #[serde(skip_serializing_if = "Option::is_none")]
         t: Option<f64>,
         delta: f32,
     },

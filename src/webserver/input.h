@@ -31,6 +31,7 @@ struct InputEvent {
 	// Mouse move params
 	float x_rel = 0, y_rel = 0;
 	float x_abs = 0, y_abs = 0;
+	bool has_abs = false;
 
 	// Mouse button params
 	std::string button = {};
