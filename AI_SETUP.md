@@ -6,19 +6,35 @@ This document enables an AI agent to install and configure `dosbox-mcp` (MCP ser
 
 ## 1. Prerequisites
 
-### System Dependencies (Ubuntu/Debian)
+### System Dependencies (CachyOS / Arch)
+
+Check what's already installed before installing — this prints only the missing packages:
 ```bash
-apt-get update && apt-get install -y \
-  build-essential cmake git pkg-config \
-  libsdl2-dev libsdl2-net-dev libsdl2-image-dev libsdl2-mixer-dev \
-  libfreetype6-dev libpng-dev libjpeg-dev libasound2-dev \
-  libwayland-dev libxkbcommon-dev libvulkan-dev \
-  libarchive-dev libbz2-dev zlib1g-dev \
-  libspeexdsp-dev libopusfile-dev \
-  python3 python3-pip \
-  xvfb \
+for p in base-devel cmake git pkgconf sdl3 sdl3_image freetype2 libpng mesa \
+  alsa-lib libarchive bzip2 zlib speexdsp gtest python xorg-server-xvfb \
+  xorg-xdpyinfo curl; do
+  pacman -Qi "$p" >/dev/null 2>&1 || echo "MISSING: $p"
+done
+```
+
+Install (idempotent — `--needed` skips packages already present):
+```bash
+sudo pacman -S --needed \
+  base-devel cmake git pkgconf \
+  sdl3 sdl3_image \
+  freetype2 libpng mesa \
+  alsa-lib libarchive bzip2 zlib \
+  speexdsp gtest \
+  python \
+  xorg-server-xvfb xorg-xdpyinfo \
   curl
 ```
+
+Notes:
+- The build targets **SDL3** (>= 3.4.0), not SDL2 — `sdl3` and `sdl3_image` are the correct Arch packages.
+- `gtest` ships both gtest and gmock; tests require the system GoogleTest.
+- Optional: `fluidsynth` (system FluidSynth instead of fetching it; `-DOPT_FETCH_DEPS=ON` builds it from source if missing).
+- SDL3, SDL3_image, MT32Emu, iir1, zlib-ng and FluidSynth can all be resolved by `-DOPT_FETCH_DEPS=ON`; libpng, OpenGL (mesa), ALSA, SpeexDSP, GTest, LibArchive, BZip2, zlib must be system packages.
 
 ### Rust Toolchain
 ```bash
