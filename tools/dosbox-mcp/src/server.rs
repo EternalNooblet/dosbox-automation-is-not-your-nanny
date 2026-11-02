@@ -12,10 +12,13 @@ use rmcp::{
     model::{Resource, ResourceTemplate, Prompt, PromptArgument, PromptMessage, PromptMessageRole, ResourceContents, PaginatedRequestParam, ListResourcesResult, ListResourceTemplatesResult, ReadResourceRequestParam, ReadResourceResult, GetPromptRequestParam, GetPromptResult, ListPromptsResult, RawResource, RawResourceTemplate},
     service::{RoleServer, RequestContext},
 };
+use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use serde_json::json;
 use std::future::Future;
 use std::sync::Arc;
+use std::time::Duration;
+use tokio::sync::Mutex as AsyncMutex;
 
 // Convert to error with context
 fn to_mcp_error_ctx(endpoint: &str, err: McpError) -> McpErrorInternal {
@@ -27,6 +30,9 @@ fn to_mcp_error_ctx(endpoint: &str, err: McpError) -> McpErrorInternal {
 pub struct DosBoxMcpServer {
     client: Arc<DosBoxClient>,
     tool_router: ToolRouter<Self>,
+    /// Serializes input-injection bursts; the emulator rejects a new burst
+    /// with HTTP 409 while its replay chain is still draining.
+    input_gate: Arc<AsyncMutex<()>>,
 }
 
 impl DosBoxMcpServer {
@@ -34,7 +40,34 @@ impl DosBoxMcpServer {
         Self {
             client,
             tool_router: Self::tool_router(),
+            input_gate: Arc::new(AsyncMutex::new(())),
         }
+    }
+
+    /// POST an input payload through the burst queue: holds the gate so
+    /// concurrent tool calls serialize, and retries on 409 ("Replay already
+    /// in progress") until the emulator's pending chain completes.
+    async fn post_input<T: DeserializeOwned, B: serde::Serialize>(
+        &self,
+        path: &str,
+        body: &B,
+    ) -> Result<T, McpErrorInternal> {
+        let _gate = self.input_gate.lock().await;
+        const MAX_ATTEMPTS: usize = 60; // ~30s of waiting at 500ms backoff
+        for attempt in 0..MAX_ATTEMPTS {
+            match self.client.post(path, body).await {
+                Ok(result) => return Ok(result),
+                Err(McpError::Http { status: 409, .. }) => {
+                    tokio::time::sleep(Duration::from_millis(500)).await;
+                    continue;
+                }
+                Err(e) => return Err(to_mcp_error_ctx(path, e)),
+            }
+        }
+        Err(McpErrorInternal::internal_error(
+            format!("{} - emulator input queue busy after {} retries", path, MAX_ATTEMPTS),
+            None,
+        ))
     }
 }
 
@@ -42,16 +75,18 @@ impl DosBoxMcpServer {
 impl DosBoxMcpServer {
     // ============ Status Tools ============
 
-    #[tool(description = "Get current DOSBox status including program state and CPU info")]
+    #[tool(description = "Get current DOSBox status including program state and CPU info. is_booted is normalized: true once the DOS shell is up (the emulator's raw flag only tracks the BOOT command).")]
     async fn get_status(&self) -> Result<CallToolResult, McpErrorInternal> {
-        let status: Status = self.client.get("/status").await.map_err(|e| to_mcp_error_ctx("/status", e))?;
+        let mut status: Status = self.client.get("/status").await.map_err(|e| to_mcp_error_ctx("/status", e))?;
+        status.is_booted = status.is_booted || status.is_shell;
         let content = Content::json(status).map_err(|e| McpErrorInternal::internal_error(e.to_string(), None))?;
         Ok(CallToolResult::success(vec![content]))
     }
 
-    #[tool(description = "Get the current program execution state")]
+    #[tool(description = "Get the current program execution state. is_booted is normalized: true once the DOS shell is up (the emulator's raw flag only tracks the BOOT command).")]
     async fn get_program_state(&self) -> Result<CallToolResult, McpErrorInternal> {
-        let state: ProgramState = self.client.get("/program/state").await.map_err(|e| to_mcp_error_ctx("/program/state", e))?;
+        let mut state: ProgramState = self.client.get("/program/state").await.map_err(|e| to_mcp_error_ctx("/program/state", e))?;
+        state.is_booted = state.is_booted || state.is_shell;
         let content = Content::json(state).map_err(|e| McpErrorInternal::internal_error(e.to_string(), None))?;
         Ok(CallToolResult::success(vec![content]))
     }
@@ -214,18 +249,18 @@ impl DosBoxMcpServer {
 
     // ============ Input Tools ============
 
-    #[tool(description = "Type text into DOSBox at specified characters per second (default: 30 cps)")]
+    #[tool(description = "Type text into DOSBox at specified characters per second (default: 30 cps). Bursts are queued internally: if a previous burst is still playing, this call waits for it instead of failing.")]
     async fn type_text(&self, Parameters(params): Parameters<TypeTextParams>) -> Result<CallToolResult, McpErrorInternal> {
         let body = json!({ "text": params.text, "cps": params.cps });
-        let result: TypeTextResponse = self.client.post("/input/type", &body).await.map_err(|e| to_mcp_error_ctx("/input/type", e))?;
+        let result: TypeTextResponse = self.post_input("/input/type", &body).await?;
         let content = Content::json(result).map_err(|e| McpErrorInternal::internal_error(e.to_string(), None))?;
         Ok(CallToolResult::success(vec![content]))
     }
 
-    #[tool(description = "Send a sequence of input events (keys, mouse, wheel) with optional timing")]
+    #[tool(description = "Send a sequence of input events (keys, mouse, wheel) with optional timing. Bursts are queued internally: if a previous burst is still playing, this call waits for it instead of failing.")]
     async fn send_input_sequence(&self, Parameters(params): Parameters<SendInputSequenceParams>) -> Result<CallToolResult, McpErrorInternal> {
         let body = json!({ "events": params.events });
-        let result: InputSequenceResponse = self.client.post("/input/sequence", &body).await.map_err(|e| to_mcp_error_ctx("/input/sequence", e))?;
+        let result: InputSequenceResponse = self.post_input("/input/sequence", &body).await?;
         let content = Content::json(result).map_err(|e| McpErrorInternal::internal_error(e.to_string(), None))?;
         Ok(CallToolResult::success(vec![content]))
     }
@@ -1086,6 +1121,9 @@ Remove freezes. With no address, clears all freezes.
             // Input
             "type_text" => r#"## type_text
 Type text into DOSBox at specified characters per second (default: 30 cps).
+Bursts are queued server-side: concurrent calls serialize, and a call that
+arrives while a previous burst is still playing waits until the emulator
+accepts it instead of returning an error.
 
 **Parameters:**
 - `text` (string): Text to type (supports escape sequences like \r, \n, \t)
