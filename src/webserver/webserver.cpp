@@ -166,39 +166,18 @@ static void setup_api_handlers()
 	server.Post("/api/v1/drive/swap", DriveSwapCommand::Post);
 
 	server.Post("/api/v1/mount/lock",
-		            [](const httplib::Request&, httplib::Response& res) {
-		            MountPolicy::Lock();
-		            json j;
-		            j["status"] = "locked";
-		            send_json(res, j);
-		            });
+			[](const httplib::Request&, httplib::Response& res) {
+			MountPolicy::Lock();
+			json j;
+			j["status"] = "locked";
+			send_json(res, j);
+			});
 		server.Get("/api/v1/mount/lock",
-		           [](const httplib::Request&, httplib::Response& res) {
-		           json j;
-		           j["locked"] = MountPolicy::IsLocked();
-		           send_json(res, j);
-		           });
-
-		server.Get("/api/v1/mount/allowed-bases",
-		           [](const httplib::Request&, httplib::Response& res) {
-		           json j;
-		           auto bases = MountPolicy::AllowedBases();
-		           j["allowed_bases"] = json::array();
-		           for (const auto& base : bases) {
-		               j["allowed_bases"].push_back(base.string());
-		           }
-		           send_json(res, j);
-		           });
-		server.Get("/api/v1/mount/allowed-image-roots",
-		           [](const httplib::Request&, httplib::Response& res) {
-		           json j;
-		           auto roots = MountPolicy::AllowedImageRoots();
-		           j["allowed_image_roots"] = json::array();
-		           for (const auto& root : roots) {
-		               j["allowed_image_roots"].push_back(root.string());
-		           }
-		           send_json(res, j);
-		           });
+			[](const httplib::Request&, httplib::Response& res) {
+			json j;
+			j["locked"] = MountPolicy::IsLocked();
+			send_json(res, j);
+			});
 
 		server.Post("/api/v1/input/record/start", RecordingHandlers::PostStart);
 	server.Post("/api/v1/input/record/pause", RecordingHandlers::PostPause);
@@ -229,64 +208,18 @@ static void setup_api_handlers()
 	server.Put("/api/v1/mixer/channel/:name", MixerSetChannelVolumeCommand::Put);
 }
 
-static std::string strip_port(const std::string& host)
-{
-	// IPv6 literal: [::1]:8080
-	if (host.size() > 1 && host[0] == '[') {
-		const auto bracket = host.rfind(']');
-		if (bracket != std::string::npos) {
-			return host.substr(0, bracket + 1);
-		}
-		return host;
-	}
-
-	// IPv4 or hostname: 127.0.0.1:8080
-	const auto colon = host.rfind(':');
-	if (colon != std::string::npos) {
-		return host.substr(0, colon);
-	}
-	return host;
-}
-
 static void setup_security(const std::string& addr, int port)
 {
-	std::set<std::string> allowed_hosts;
+	(void)addr;
+	(void)port;
 
-	const auto port_str = ":" + std::to_string(port);
-
-	auto add = [&](const std::string& hostname) {
-		allowed_hosts.emplace(hostname);
-		allowed_hosts.emplace(hostname + port_str);
-	};
-
-	add(addr);
-
-	if (addr == "127.0.0.1" || addr == "0.0.0.0") {
-		add("localhost");
-	}
-	if (addr == "::1" || addr == "::") {
-		add("localhost");
-		add("[::1]");
-	}
-
-	// Authentication removed: every request that passes the Host check
-	// may reach the API, with no Authorization header. Loopback tool
-	// pages still announce themselves so a second workbench tab is not
-	// opened beside an already-open one.
-	server.set_pre_routing_handler([allowed_hosts = std::move(allowed_hosts)](
-	                               const httplib::Request& req,
-	                               httplib::Response& res) {
-		const auto host = strip_port(req.get_header_value("Host"));
-
-		if (allowed_hosts.find(host) == allowed_hosts.end()) {
-			augra::log_warn("webserver",
-			                "rejected request with Host header '%s'",
-			                req.get_header_value("Host").c_str());
-			res.status = httplib::StatusCode::Forbidden_403;
-			res.set_content("Forbidden", "text/plain");
-			return httplib::Server::HandlerResponse::Handled;
-		}
-
+	// Host-header validation removed: the server is bound to 0.0.0.0 on
+	// purpose, so any Host is accepted and every request may reach the
+	// API, with no Authorization header. Loopback tool pages still
+	// announce themselves so a second workbench tab is not opened beside
+	// an already-open one.
+	server.set_pre_routing_handler(
+	    [](const httplib::Request& req, httplib::Response& res) {
 		if (IsLoopbackPeer(req.remote_addr)) {
 			NoteToolPageSeen(req.get_header_value("X-DOSBox-Tool"),
 			                 std::chrono::steady_clock::now());
@@ -465,28 +398,9 @@ static void init_config_settings(SectionProp& section)
 	        "default so it is always clear when the machine is under remote\n"
 	        "control. Set to false to hide the overlay.");
 
-	// The mount policy reads these two settings straight from the primary
-	// config file (mount_policy.cpp) so that -conf files and command line
-	// overrides cannot widen the mount roots. They are registered here so
-	// the config system knows them: otherwise every config parse logs an
-	// unknown-setting warning, and they would be missing from the
-	// generated config and the setting documentation.
-	auto mount_bases = section.AddString("mount_allowed_bases", OnlyAtStart, "");
-	mount_bases->SetHelp(
-	        "Additional base directories that MOUNT may expose to the guest, as\n"
-	        "a semicolon-separated list (unset by default). Paths with symlink\n"
-	        "components are rejected. For security, this setting is only honored\n"
-	        "in the primary config file; -conf files and command line overrides\n"
-	        "are ignored.");
-
-	auto mount_image_roots = section.AddString("mount_allowed_image_roots",
-	                                           OnlyAtStart,
-	                                           "");
-	mount_image_roots->SetHelp(
-	        "Directories that floppy and CD images may be mounted or swapped\n"
-	        "from, as a semicolon-separated list (unset by default). Follows the\n"
-	        "same rules as mount_allowed_bases: only the primary config file is\n"
-	        "honored.");
+	// Mount policy no longer enforces a whitelist. These settings are kept
+	// as no-ops for config compatibility (no unknown-setting warnings).
+	// They have no effect on mount behavior.
 }
 
 } // namespace Webserver

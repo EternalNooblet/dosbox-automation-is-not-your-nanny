@@ -232,19 +232,33 @@ impl DosBoxMcpServer {
 
     // ============ Video/Frame Tools ============
 
-    #[tool(description = "Capture a frame (raw or rendered) as PNG/JPEG/raw. Returns base64-encoded image.")]
+    #[tool(description = "Capture a frame (raw or rendered) as PNG/JPEG/raw. Returns base64-encoded image, or with save_path writes the file to disk on the MCP server host and returns saved_path instead of data.")]
     async fn capture_frame(&self, Parameters(params): Parameters<CaptureFrameParams>) -> Result<CallToolResult, McpErrorInternal> {
         let path = format!("/video/frame?mode={}&format={}&quality={}", params.mode, params.format, params.quality);
         let bytes = self.client.get_bytes(&path).await.map_err(|e| to_mcp_error_ctx(&path, e))?;
-        
-        let base64 = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &bytes);
+
+        let saved_path = match params.save_path.as_ref() {
+            Some(p) => {
+                std::fs::write(p, &bytes)
+                    .map_err(|e| McpErrorInternal::internal_error(format!("write failed for {}: {}", p, e), None))?;
+                Some(p.clone())
+            }
+            None => None,
+        };
+
+        let data = if saved_path.is_some() {
+            String::new()
+        } else {
+            base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &bytes)
+        };
         let result = CaptureFrameResult {
-            data: base64,
+            data,
             size: bytes.len(),
             format: params.format,
             mode: params.mode,
             width: None,
             height: None,
+            saved_path,
         };
         let content = Content::json(result).map_err(|e| McpErrorInternal::internal_error(e.to_string(), None))?;
         Ok(CallToolResult::success(vec![content]))
@@ -316,20 +330,6 @@ impl DosBoxMcpServer {
     async fn get_mount_lock(&self) -> Result<CallToolResult, McpErrorInternal> {
         let state: MountLockStatus = self.client.get("/mount/lock").await.map_err(|e| to_mcp_error_ctx("/mount/lock", e))?;
         let content = Content::json(state).map_err(|e| McpErrorInternal::internal_error(e.to_string(), None))?;
-        Ok(CallToolResult::success(vec![content]))
-    }
-
-    #[tool(description = "Get allowed base directories for MOUNT (mount_allowed_bases from config)")]
-    async fn get_mount_allowed_bases(&self) -> Result<CallToolResult, McpErrorInternal> {
-        let response: MountAllowedBasesResponse = self.client.get("/mount/allowed-bases").await.map_err(|e| to_mcp_error_ctx("/mount/allowed-bases", e))?;
-        let content = Content::json(response).map_err(|e| McpErrorInternal::internal_error(e.to_string(), None))?;
-        Ok(CallToolResult::success(vec![content]))
-    }
-
-    #[tool(description = "Get allowed image roots for drive swap (mount_allowed_image_roots from config)")]
-    async fn get_mount_allowed_image_roots(&self) -> Result<CallToolResult, McpErrorInternal> {
-        let response: MountAllowedImageRootsResponse = self.client.get("/mount/allowed-image-roots").await.map_err(|e| to_mcp_error_ctx("/mount/allowed-image-roots", e))?;
-        let content = Content::json(response).map_err(|e| McpErrorInternal::internal_error(e.to_string(), None))?;
         Ok(CallToolResult::success(vec![content]))
     }
 
@@ -564,6 +564,10 @@ pub struct CaptureFrameParams {
     /// JPEG quality 1-100 (default: 85)
     #[serde(default = "default_quality")]
     pub quality: u8,
+    /// Optional absolute path: write the image bytes to this file instead of
+    /// returning base64. When set, `data` is empty and `saved_path` is set.
+    #[serde(default)]
+    pub save_path: Option<String>,
 }
 
 fn default_mode() -> String {
@@ -1231,28 +1235,6 @@ Get current mount lock state.
 **Example:**
 ```json
 { "tool": "get_mount_lock", "arguments": {} }
-```"#,
-            "get_mount_allowed_bases" => r#"## get_mount_allowed_bases
-Get allowed base directories for MOUNT (mount_allowed_bases from config).
-
-**Parameters:** None
-
-**Returns:** `MountAllowedBasesResponse` with array of allowed base directory paths.
-
-**Example:**
-```json
-{ "tool": "get_mount_allowed_bases", "arguments": {} }
-```"#,
-            "get_mount_allowed_image_roots" => r#"## get_mount_allowed_image_roots
-Get allowed image roots for drive swap (mount_allowed_image_roots from config).
-
-**Parameters:** None
-
-**Returns:** `MountAllowedImageRootsResponse` with array of allowed image root directory paths.
-
-**Example:**
-```json
-{ "tool": "get_mount_allowed_image_roots", "arguments": {} }
 ```"#,
             // Script
             "load_script" => r#"## load_script

@@ -388,8 +388,8 @@ DriveConstructionHookFn drive_construction_hook = nullptr;
 
 static MountVerdict ValidateDirectoryMountImpl(
         const std::filesystem::path& raw_path,
-        const std::filesystem::path& conf_anchor,
-        const std::vector<std::filesystem::path>& allowed_bases, DirMountPolicy policy)
+        const std::filesystem::path& /*conf_anchor*/,
+        const std::vector<std::filesystem::path>& /*allowed_bases*/, DirMountPolicy policy)
 {
 	auto verdict = MountVerdict{};
 
@@ -441,19 +441,11 @@ static MountVerdict ValidateDirectoryMountImpl(
 		return verdict;
 	}
 
-	// WhitelistEnforced: must be under conf anchor or an allowed base
-	auto all_roots = std::vector<std::filesystem::path>{};
-	if (!conf_anchor.empty()) {
-		all_roots.push_back(conf_anchor);
-	}
-	all_roots.insert(all_roots.end(), allowed_bases.begin(), allowed_bases.end());
-
-	if (IsUnderAnyRoot(*canonical, all_roots)) {
-		verdict.allowed = true;
-		verdict.reason  = DenyReason::None;
-	} else {
-		verdict.reason = DenyReason::OutsideWhitelist;
-	}
+	// WhitelistEnforced: mount anything (system paths and symlinks
+	// already rejected above). The allowed_bases/conf_anchor config
+	// settings are now no-ops.
+	verdict.allowed = true;
+	verdict.reason  = DenyReason::None;
 	return verdict;
 }
 
@@ -584,167 +576,33 @@ MountVerdict ValidateImagePath(const std::filesystem::path& raw_path,
 static PolicyPaths policy_paths = {};
 static bool policy_initialized  = false;
 
-// Only these env vars are expanded in policy paths
-static std::string ExpandPolicyEnvVars(const std::string& input)
+PolicyPaths ParsePolicyConfig(const std::filesystem::path& /*config_path*/)
 {
-	auto result = input;
-	struct EnvMapping {
-		const char* token;
-		const char* var;
-	};
-	// Longest token first so $XDG_DATA_HOME matches before $HOME
-	constexpr EnvMapping mappings[] = {
-	        {"$XDG_DATA_HOME", "XDG_DATA_HOME"},
-	        { "%USERPROFILE%",   "USERPROFILE"},
-	        {         "$HOME",          "HOME"},
-	};
-	for (const auto& m : mappings) {
-		auto pos = result.find(m.token);
-		if (pos != std::string::npos) {
-			const auto val = get_env_var(m.var);
-			if (val.empty()) {
-				return {};
-			}
-			result.replace(pos, std::strlen(m.token), val);
-		}
-	}
-	return result;
+	// Mount policy no longer uses a whitelist. This function is kept
+	// for API compatibility but returns empty paths.
+	return PolicyPaths{};
 }
 
-static std::string TrimWhitespace(const std::string& s)
+void InitPolicyConfig(const std::filesystem::path& /*primary_config_path*/)
 {
-	auto start = s.find_first_not_of(" \t");
-	if (start == std::string::npos) {
-		return {};
-	}
-	auto end = s.find_last_not_of(" \t");
-	return s.substr(start, end - start + 1);
-}
-
-static void ParsePathList(const std::string& val,
-                          std::vector<std::filesystem::path>& out, int max_entries)
-{
-	auto stream = std::istringstream(val);
-	auto entry  = std::string();
-	while (std::getline(stream, entry, ';')) {
-		entry = TrimWhitespace(entry);
-		if (entry.empty()) {
-			continue;
-		}
-
-		auto expanded = ExpandPolicyEnvVars(entry);
-		if (expanded.empty()) {
-			augra::log_warn("mount-policy",
-			                "dropped '%s' - env var unset",
-			                entry.c_str());
-			continue;
-		}
-
-		auto ec        = std::error_code();
-		auto canonical = std::filesystem::canonical(expanded, ec);
-		if (ec) {
-			augra::log_warn("mount-policy",
-			                "dropped '%s' - does not resolve",
-			                expanded.c_str());
-			continue;
-		}
-
-		if (static_cast<int>(out.size()) >= max_entries) {
-			augra::log_warn("mount-policy",
-			                "ignoring '%s' - max %d entries",
-			                expanded.c_str(),
-			                max_entries);
-			continue;
-		}
-		out.push_back(canonical);
-	}
-}
-
-PolicyPaths ParsePolicyConfig(const std::filesystem::path& config_path)
-{
-	constexpr int max_entries = 5;
-	auto result               = PolicyPaths{};
-
-	auto file = std::ifstream(config_path);
-	if (!file.is_open()) {
-		return result;
-	}
-
-	auto in_webserver_section = false;
-	auto line                 = std::string();
-
-	while (std::getline(file, line)) {
-		line = TrimWhitespace(line);
-		if (line.empty() || line[0] == '#') {
-			continue;
-		}
-
-		if (line[0] == '[') {
-			in_webserver_section = (line.find("[webserver]") == 0);
-			continue;
-		}
-
-		if (!in_webserver_section) {
-			continue;
-		}
-
-		auto eq = line.find('=');
-		if (eq == std::string::npos) {
-			continue;
-		}
-
-		auto key = TrimWhitespace(line.substr(0, eq));
-		auto val = TrimWhitespace(line.substr(eq + 1));
-		if (val.empty()) {
-			continue;
-		}
-
-		if (key == "mount_allowed_bases") {
-			ParsePathList(val, result.allowed_bases, max_entries);
-		} else if (key == "mount_allowed_image_roots") {
-			ParsePathList(val, result.allowed_image_roots, max_entries);
-		}
-	}
-	return result;
-}
-
-void InitPolicyConfig(const std::filesystem::path& primary_config_path)
-{
-	policy_paths       = ParsePolicyConfig(primary_config_path);
+	// Mount policy no longer uses a whitelist. This function is kept
+	// for API compatibility.
+	policy_paths       = PolicyPaths{};
 	policy_initialized = true;
-
-	// Bundled drives/[c] auto-mount at startup (autoexec.cpp) through the
-	// same MOUNT path as guest/API mounts. First-party shipped content,
-	// same trust level as the conf anchor.
-	const auto drives_root = get_resource_path("drives");
-	if (!drives_root.empty()) {
-		std::error_code ec;
-		const auto canonical = std::filesystem::canonical(drives_root, ec);
-		if (!ec) {
-			policy_paths.allowed_bases.push_back(canonical);
-		}
-	}
-
-	for (const auto& p : policy_paths.allowed_bases) {
-		augra::log_info("mount-policy", "allowed base: %s", p.string().c_str());
-	}
-	for (const auto& p : policy_paths.allowed_image_roots) {
-		augra::log_info("mount-policy",
-		                "allowed image root: %s",
-		                p.string().c_str());
-	}
 }
 
 const std::vector<std::filesystem::path>& AllowedBases()
 {
 	assert(policy_initialized);
-	return policy_paths.allowed_bases;
+	static const std::vector<std::filesystem::path> empty;
+	return empty;
 }
 
 const std::vector<std::filesystem::path>& AllowedImageRoots()
 {
 	assert(policy_initialized);
-	return policy_paths.allowed_image_roots;
+	static const std::vector<std::filesystem::path> empty;
+	return empty;
 }
 
 std::filesystem::path ConfAnchor()
