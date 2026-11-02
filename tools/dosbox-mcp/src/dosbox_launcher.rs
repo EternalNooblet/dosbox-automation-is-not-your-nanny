@@ -162,8 +162,7 @@ impl DosBoxLauncher {
         }
 
         // Run headless (no GUI) for server mode
-        cmd.arg("--noprimaryconf")
-            .arg("--noautoexec");
+        cmd.arg("--noprimaryconf");
         if self.secure_mode {
             cmd.arg("--securemode");
         }
@@ -235,13 +234,14 @@ impl DosBoxLauncher {
 
 impl Drop for DosBoxLauncher {
     fn drop(&mut self) {
-        // Best effort cleanup - spawn a task to kill the process
-        if let Some(child) = self.child.blocking_lock().take() {
-            let _ = tokio::runtime::Handle::current().spawn(async move {
-                let mut child = child;
-                let _ = child.kill().await;
-                let _ = timeout(Duration::from_secs(3), child.wait()).await;
-            });
+        // Best effort cleanup - use try_lock to avoid blocking in async context
+        if let Ok(mut child_guard) = self.child.try_lock() {
+            if let Some(mut child) = child_guard.take() {
+                // Kill synchronously; we can't await in Drop
+                let _ = child.start_kill();
+                // Don't wait - process will be reaped by OS
+            }
         }
+        // If we can't get the lock, the process is still running and will be cleaned up by OS
     }
 }

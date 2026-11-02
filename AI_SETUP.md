@@ -141,10 +141,10 @@ Xvfb :99 -screen 0 1024x768x24 &
 ### With Auto-Start (Recommended)
 ```bash
 # Text-mode only (default, no Xvfb needed):
-~/.cargo/bin/dosbox-mcp --dosbox-bin /full/path/to/dosbox-automation-is-not-your-nanny/build/debug-linux/dosbox-automation
+/full/path/to/dosbox-automation-is-not-your-nanny/tools/dosbox-mcp/target/release/dosbox-mcp --dosbox-bin /full/path/to/dosbox-automation-is-not-your-nanny/build/debug-linux/dosbox-automation
 
 # Graphics mode (requires Xvfb :99 running):
-~/.cargo/bin/dosbox-mcp --dosbox-bin /full/path/to/dosbox-automation-is-not-your-nanny/build/debug-linux/dosbox-automation --display :99 --cpu-cycles 30000
+/full/path/to/dosbox-automation-is-not-your-nanny/tools/dosbox-mcp/target/release/dosbox-mcp --dosbox-bin /full/path/to/dosbox-automation-is-not-your-nanny/build/debug-linux/dosbox-automation --display :99 --cpu-cycles 30000
 ```
 
 ### Without Auto-Start (Connect to Existing)
@@ -160,7 +160,7 @@ cd /full/path/to/dosbox-automation-is-not-your-nanny
   --securemode
 
 # Terminal 2: Connect MCP server
-~/.cargo/bin/dosbox-mcp --no-auto-start --base-url http://localhost:8386
+/full/path/to/dosbox-automation-is-not-your-nanny/tools/dosbox-mcp/target/release/dosbox-mcp --no-auto-start --base-url http://localhost:8386
 ```
 
 ---
@@ -172,10 +172,10 @@ Add to Hermes MCP config (e.g., `~/.hermes/mcp_servers.json`):
 {
   "mcpServers": {
     "dosbox-mcp": {
-      "command": "/home/papa/.cargo/bin/dosbox-mcp",
+      "command": "/full/path/to/dosbox-automation-is-not-your-nanny/tools/dosbox-mcp/target/release/dosbox-mcp",
       "args": [
         "--dosbox-bin",
-        "/home/papa/dosbox-automation-is-not-your-nanny/build/debug-linux/dosbox-automation",
+        "/full/path/to/dosbox-automation-is-not-your-nanny/build/debug-linux/dosbox-automation",
         "--display",
         ":99",
         "--cpu-cycles",
@@ -250,10 +250,10 @@ Should return your configured `mount_allowed_bases` paths.
 
 ## 13. File Locations Summary
 
-| Component | Path |
+| Component | Path (relative to repo root) |
 |-----------|------|
-| dosbox-automation binary | `~/dosbox-automation-is-not-your-nanny/build/debug-linux/dosbox-automation` |
-| dosbox-mcp binary | `~/dosbox-automation-is-not-your-nanny/tools/dosbox-mcp/target/release/dosbox-mcp` |
+| dosbox-automation binary | `build/debug-linux/dosbox-automation` |
+| dosbox-mcp binary | `tools/dosbox-mcp/target/release/dosbox-mcp` |
 | Primary mount config | `~/.config/dosbox-automation/dosbox-automation.conf` |
 | dosbox-mcp config | `~/.config/dosbox-mcp/config.toml` |
 | Xvfb display | `:99` (if used) |
@@ -264,7 +264,7 @@ Should return your configured `mount_allowed_bases` paths.
 ## 14. One-Command Setup (After Prerequisites)
 
 ```bash
-cd ~/dosbox-automation-is-not-your-nanny && \
+cd dosbox-automation-is-not-your-nanny && \
 cmake --preset debug-linux -DOPT_FETCH_DEPS=ON && \
 cmake --build build/debug-linux -- -j$(nproc) && \
 cd tools/dosbox-mcp && cargo build --release && \
@@ -274,9 +274,9 @@ mkdir -p ~/.config/dosbox-mcp && \
 echo -e '[default]\nbase_url = "http://localhost:8386"\ndisplay = ":99"\ncpu_cycles = "30000"' > ~/.config/dosbox-mcp/config.toml
 ```
 
-Then start Xvfb and run:
+Then start Xvfb and run (from the repo root):
 ```bash
-Xvfb :99 -screen 0 1024x768x24 &
-~/dosbox-automation-is-not-your-nanny/tools/dosbox-mcp/target/release/dosbox-mcp \
-  --dosbox-bin ~/dosbox-automation-is-not-your-nanny/build/debug-linux/dosbox-automation
+cd ../.. && Xvfb :99 -screen 0 1024x768x24 &
+"$PWD/tools/dosbox-mcp/target/release/dosbox-mcp" \
+  --dosbox-bin "$PWD/build/debug-linux/dosbox-automation"
 ```

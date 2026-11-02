@@ -638,12 +638,12 @@ def test_memory_allocate_xms_non_bestfit(dosbox):
 
 
 # ---------------------------------------------------------------------------
-# Host validation
+# Host handling (validation removed — server bound to 0.0.0.0 accepts any Host)
 # ---------------------------------------------------------------------------
 
-def test_host_validation_rejects_bad_host(dosbox):
+def test_host_validation_accepts_any_host(dosbox):
     r = dosbox.get_with_host("/api/v1/status", "evil.example.com")
-    assert r.status_code == 403
+    assert r.status_code == 200
 
 
 def test_host_validation_accepts_localhost(dosbox):

@@ -473,7 +473,7 @@ if (OPT_OPENGL)
   set(C_OPENGL ON)
 endif()
 
-option(OPT_MT32EMU "Enable Roland MT-32 emulation support" ON)
+option(OPT_MT32EMU "Enable Roland MT-32 emulation support" OFF)
 if (OPT_MT32EMU)
   set(C_MT32EMU ON)
   find_package(MT32Emu QUIET)
