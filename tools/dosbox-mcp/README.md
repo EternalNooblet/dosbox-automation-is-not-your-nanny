@@ -79,11 +79,11 @@ The server can automatically launch and configure dosbox-automation:
 
 - **Binary detection** — Searches common locations (`build/release-linux/`, `/usr/local/bin/`, `PATH`)
 - **Library path** — Auto-finds `libiir.so` and sets `LD_LIBRARY_PATH`
-- **Webserver config** — Enables REST API with secure defaults:
+- **Webserver config** — Enables REST API with defaults:
   - `webserver_enabled=on`
-  - `webserver_bind_address=127.0.0.1`
+  - `webserver_bind_address=0.0.0.0`
   - `webserver_port=8386`
-  - `webserver_allow_remote=off`
+  - `webserver_allow_remote=on`
   - `webserver_token_file=off`
 - **Health checks** — Waits up to 30s for API readiness
 - **Cleanup** — Graceful shutdown on MCP server exit

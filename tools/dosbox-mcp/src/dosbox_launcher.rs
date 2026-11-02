@@ -17,6 +17,9 @@ pub struct DosBoxLauncher {
     base_url: String,
     child: Arc<Mutex<Option<tokio::process::Child>>>,
     lib_path: Option<PathBuf>,
+    cpu_cycles: Option<String>,
+    secure_mode: bool,
+    display: Option<String>,
 }
 
 impl DosBoxLauncher {
@@ -25,6 +28,9 @@ impl DosBoxLauncher {
         working_dir: Option<PathBuf>,
         extra_args: Vec<String>,
         base_url: String,
+        cpu_cycles: Option<String>,
+        secure_mode: bool,
+        display: Option<String>,
     ) -> Result<Self> {
         let binary_path = if let Some(path) = binary_path {
             path
@@ -42,6 +48,9 @@ impl DosBoxLauncher {
             base_url,
             child: Arc::new(Mutex::new(None)),
             lib_path,
+            cpu_cycles,
+            secure_mode,
+            display,
         })
     }
 
@@ -101,7 +110,7 @@ impl DosBoxLauncher {
         let url = Url::parse(&self.base_url)
             .context("Invalid base_url")?;
         let port = url.port().unwrap_or(8386);
-        // Always bind to 0.0.0.0 for external access
+        // Bind to 0.0.0.0 for external access
         let host = "0.0.0.0";
 
         // Build command
@@ -122,6 +131,14 @@ impl DosBoxLauncher {
             cmd.env("LD_LIBRARY_PATH", lib_path_env);
         }
 
+        // Graphics environment: use provided DISPLAY or default to offscreen
+        if let Some(ref display) = self.display {
+            cmd.env("DISPLAY", display);
+        } else {
+            cmd.env("SDL_VIDEODRIVER", "offscreen");
+            cmd.env("SDL_AUDIODRIVER", "dummy");
+        }
+
         // Configure webserver via command line args
         cmd.arg("--set")
             .arg("webserver_enabled=on");
@@ -134,6 +151,11 @@ impl DosBoxLauncher {
         cmd.arg("--set")
             .arg("webserver_token_file=off");
 
+        // Set CPU cycles if specified
+        if let Some(ref cycles) = self.cpu_cycles {
+            cmd.arg("--set").arg(format!("cpu_cycles={}", cycles));
+        }
+
         // Add extra args
         for arg in &self.extra_args {
             cmd.arg(arg);
@@ -141,8 +163,10 @@ impl DosBoxLauncher {
 
         // Run headless (no GUI) for server mode
         cmd.arg("--noprimaryconf")
-            .arg("--noautoexec")
-            .arg("--securemode");
+            .arg("--noautoexec");
+        if self.secure_mode {
+            cmd.arg("--securemode");
+        }
 
         // Configure stdio
         cmd.stdout(Stdio::piped())

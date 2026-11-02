@@ -35,11 +35,14 @@ base_url = "http://192.168.1.50:8386"
 | `base_url` | string | required | dosbox-automation REST API URL |
 | `timeout_secs` | integer | 30 | Request timeout in seconds |
 | `verify_tls` | boolean | true | Verify TLS certificates |
+| `cpu_cycles` | string | (unset) | CPU cycles setting (e.g., "30000", "auto", "max") |
+| `secure_mode` | boolean | false | Enable secure mode (blocks MOUNT) |
+| `display` | string | (unset) | X11 display (e.g., ":99" for Xvfb). If unset, uses offscreen SDL driver. |
 | `instances` | array | [] | Named instances for multi-server setups |
 
 ---
 
-## CLI Options
+### CLI Options
 
 ```bash
 dosbox-mcp [OPTIONS] [-- <DOSBOX_ARGS>...]
@@ -55,6 +58,9 @@ Options:
   --auto-start               Auto-start dosbox-automation (default: true)
   --no-auto-start            Don't auto-start, connect to existing
   --working-dir <DIR>        Working directory for dosbox-automation
+  --cpu-cycles <CYCLES>      CPU cycles setting (e.g., "30000", "auto", "max") [env: DOSBOX_CPU_CYCLES]
+  --secure-mode              Enable secure mode (blocks MOUNT, default: false)
+  --display <DISPLAY>        X11 display (e.g., ":99" for Xvfb). If unset, uses offscreen SDL driver [env: DOSBOX_DISPLAY]
 
   <DOSBOX_ARGS>...           Extra args passed to dosbox-automation
 ```
@@ -86,9 +92,14 @@ dosbox-mcp -- -conf /custom/dosbox.conf
 |----------|-------------|
 | `DOSBOX_API_URL` | Base URL for dosbox-automation API |
 | `DOSBOX_AUTOMATION_BIN` | Path to dosbox-automation binary |
+| `DOSBOX_CPU_CYCLES` | CPU cycles setting (e.g., "30000", "auto", "max") |
+| `DOSBOX_DISPLAY` | X11 display (e.g., ":99" for Xvfb) |
 | `DOSBOX_MCP_BASE_URL` | Config override for base_url |
 | `DOSBOX_MCP_TIMEOUT_SECS` | Config override for timeout |
 | `DOSBOX_MCP_VERIFY_TLS` | Config override for TLS verification |
+| `DOSBOX_MCP_CPU_CYCLES` | Config override for cpu_cycles |
+| `DOSBOX_MCP_SECURE_MODE` | Config override for secure_mode |
+| `DOSBOX_MCP_DISPLAY` | Config override for display |
 | `DOSBOX_MCP_LOG_LEVEL` | Config override for log level |
 
 ### Example
@@ -96,8 +107,24 @@ dosbox-mcp -- -conf /custom/dosbox.conf
 ```bash
 export DOSBOX_API_URL=http://localhost:8386
 export DOSBOX_MCP_TIMEOUT_SECS=60
+export DOSBOX_MCP_CPU_CYCLES=30000
+export DOSBOX_MCP_DISPLAY=:99
 dosbox-mcp
 ```
+
+### Graphics Mode with Xvfb
+
+For graphical DOS applications (not text-mode), you need a real X11 display. Use Xvfb:
+
+```bash
+# Start Xvfb on display :99 (run once as persistent infrastructure)
+Xvfb :99 -screen 0 1024x768x24 &
+
+# Run dosbox-mcp with Xvfb display
+dosbox-mcp --display :99 --cpu-cycles 30000
+```
+
+The `--display :99` (or `DOSBOX_DISPLAY=:99` / `DOSBOX_MCP_DISPLAY=:99`) tells dosbox-automation to use Xvfb instead of the offscreen SDL driver, enabling frame capture for graphics-mode applications.
 
 ---
 
@@ -107,12 +134,12 @@ When `--auto-start` (default), the server:
 
 1. **Detects binary** — Searches `build/release-linux/`, `/usr/local/bin/`, `PATH`
 2. **Finds libraries** — Auto-locates `libiir.so`, sets `LD_LIBRARY_PATH`
-3. **Configures webserver** — Applies secure defaults:
+3. **Configures webserver** — Applies defaults:
    ```ini
    webserver_enabled=on
-   webserver_bind_address=127.0.0.1
+   webserver_bind_address=0.0.0.0
    webserver_port=8386
-   webserver_allow_remote=off
+   webserver_allow_remote=on
    webserver_token_file=off
    ```
 4. **Health checks** — Waits up to 30s for API readiness
@@ -129,7 +156,16 @@ dosbox-mcp --working-dir /path/to/working/dir
 
 # Disable auto-start (connect to existing)
 dosbox-mcp --no-auto-start --base-url http://remote-host:8386
+
+# Graphics mode with Xvfb (for graphical apps, not text-mode)
+Xvfb :99 -screen 0 1024x768x24 &
+dosbox-mcp --display :99 --cpu-cycles 30000
+
+# Enable secure mode (blocks MOUNT from guest/API)
+dosbox-mcp --secure-mode
 ```
+
+**Note:** By default (`--secure-mode` off), MOUNT is allowed from both guest commands and API. The mount policy still enforces `mount_allowed_bases` / `mount_allowed_image_roots` from the primary config file.
 
 ---
 
@@ -203,7 +239,7 @@ dosbox-mcp
 ```
 
 ### Permission denied on disk swap
-The API requires `webserver_allow_remote=true` in dosbox config for non-localhost mounts, and mounts must be within allowed paths.
+Mounts must be within allowed paths (`mount_allowed_bases` / `mount_allowed_image_roots` in primary config).
 
 ---
 

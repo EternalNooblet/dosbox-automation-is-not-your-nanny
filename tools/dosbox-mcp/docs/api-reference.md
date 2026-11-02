@@ -13,7 +13,7 @@ Complete reference for all 43 MCP tools exposed by the dosbox-mcp server.
 | **Input** | `type_text`, `send_input_sequence` |
 | **Video** | `capture_frame`, `get_frame_info`, `read_screen_text` |
 | **Recording** | `start_recording`, `pause_recording`, `stop_recording`, `get_recording_status` |
-| **Drive** | `swap_disk`, `lock_mounts`, `get_mount_lock` |
+| **Drive** | `swap_disk`, `lock_mounts`, `get_mount_lock`, `get_mount_allowed_bases`, `get_mount_allowed_image_roots` |
 | **Script** | `load_script`, `start_script`, `stop_script`, `get_script_status` |
 | **Capture** | `start_video_capture`, `stop_video_capture`, `get_capture_status`, `get_compression`, `set_compression` |
 | **I/O** | `read_port`, `write_port` |
@@ -523,6 +523,36 @@ Get current mount lock state.
 **Example:**
 ```json
 { "tool": "get_mount_lock", "arguments": {} }
+```
+
+---
+
+### get_mount_allowed_bases
+Get allowed base directories for MOUNT (mount_allowed_bases from config).
+
+**Parameters:** None
+
+**Returns:** `MountAllowedBasesResponse` with:
+- `allowed_bases` — Array of allowed base directory paths
+
+**Example:**
+```json
+{ "tool": "get_mount_allowed_bases", "arguments": {} }
+```
+
+---
+
+### get_mount_allowed_image_roots
+Get allowed image roots for drive swap (mount_allowed_image_roots from config).
+
+**Parameters:** None
+
+**Returns:** `MountAllowedImageRootsResponse` with:
+- `allowed_image_roots` — Array of allowed image root directory paths
+
+**Example:**
+```json
+{ "tool": "get_mount_allowed_image_roots", "arguments": {} }
 ```
 
 ---

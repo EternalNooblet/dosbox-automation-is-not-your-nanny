@@ -61,6 +61,18 @@ struct Args {
     /// Extra arguments to pass to dosbox-automation
     #[arg(last = true)]
     dosbox_args: Vec<String>,
+
+    /// CPU cycles setting (e.g., "30000", "auto", "max")
+    #[arg(long, env = "DOSBOX_CPU_CYCLES")]
+    cpu_cycles: Option<String>,
+
+    /// Enable secure mode (blocks MOUNT, default: false)
+    #[arg(long, default_value = "false")]
+    secure_mode: bool,
+
+    /// X11 display to use (e.g., ":99" for Xvfb). If not set, uses offscreen SDL driver.
+    #[arg(long, env = "DOSBOX_DISPLAY")]
+    display: Option<String>,
 }
 
 #[tokio::main]
@@ -87,6 +99,9 @@ async fn main() -> Result<()> {
             args.working_dir.clone(),
             args.dosbox_args.clone(),
             config.base_url.clone(),
+            config.cpu_cycles.clone(),
+            config.secure_mode,
+            config.display.clone(),
         )?;
         Some(launcher)
     } else {
@@ -106,6 +121,9 @@ async fn main() -> Result<()> {
         base_url: base_url.clone(),
         timeout_secs: config.timeout_secs,
         verify_tls: config.verify_tls,
+        cpu_cycles: config.cpu_cycles.clone(),
+        secure_mode: config.secure_mode,
+        display: config.display.clone(),
     })?);
 
     // Create and run the MCP server with stdio transport
@@ -151,6 +169,15 @@ fn load_config(args: Args) -> Result<McpConfig> {
     }
     config.timeout_secs = args.timeout_secs;
     config.verify_tls = !args.no_verify_tls;
+    if let Some(cycles) = args.cpu_cycles {
+        config.cpu_cycles = Some(cycles);
+    }
+    if args.secure_mode {
+        config.secure_mode = true;
+    }
+    if let Some(display) = args.display {
+        config.display = Some(display);
+    }
 
     // Validate
     if config.base_url.trim().is_empty() {

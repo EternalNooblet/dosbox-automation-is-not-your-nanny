@@ -319,6 +319,20 @@ impl DosBoxMcpServer {
         Ok(CallToolResult::success(vec![content]))
     }
 
+    #[tool(description = "Get allowed base directories for MOUNT (mount_allowed_bases from config)")]
+    async fn get_mount_allowed_bases(&self) -> Result<CallToolResult, McpErrorInternal> {
+        let response: MountAllowedBasesResponse = self.client.get("/mount/allowed-bases").await.map_err(|e| to_mcp_error_ctx("/mount/allowed-bases", e))?;
+        let content = Content::json(response).map_err(|e| McpErrorInternal::internal_error(e.to_string(), None))?;
+        Ok(CallToolResult::success(vec![content]))
+    }
+
+    #[tool(description = "Get allowed image roots for drive swap (mount_allowed_image_roots from config)")]
+    async fn get_mount_allowed_image_roots(&self) -> Result<CallToolResult, McpErrorInternal> {
+        let response: MountAllowedImageRootsResponse = self.client.get("/mount/allowed-image-roots").await.map_err(|e| to_mcp_error_ctx("/mount/allowed-image-roots", e))?;
+        let content = Content::json(response).map_err(|e| McpErrorInternal::internal_error(e.to_string(), None))?;
+        Ok(CallToolResult::success(vec![content]))
+    }
+
     // ============ Script Tools ============
 
     #[tool(description = "Load a Lua script")]
@@ -657,7 +671,7 @@ impl ServerHandler for DosBoxMcpServer {
             instructions: Some(
                 "MCP server for dosbox-automation REST API. Provides tools for controlling DOSBox instances including input injection, memory access, video capture, drive management, and Lua scripting.\n\n\
                 **Documentation Resources** (read via `resources/read`):\n\
-                - `docs://dosbox-mcp/api-reference` — Complete API reference for all 43 tools\n\
+                - `docs://dosbox-mcp/api-reference` — Complete API reference for all 45 tools\n\
                 - `docs://dosbox-mcp/configuration` — Server configuration guide\n\
                 - `docs://dosbox-mcp/workflows` — Common workflow examples (game install, memory trainer, testing)\n\
                 - `docs://dosbox-mcp/quickstart` — Quick start guide\n\n\
@@ -686,7 +700,7 @@ impl ServerHandler for DosBoxMcpServer {
             doc_resource(
                 "docs://dosbox-mcp/api-reference",
                 "API Reference",
-                "Complete API reference for all 43 MCP tools with parameters, examples, and error codes",
+                "Complete API reference for all 45 MCP tools with parameters, examples, and error codes",
                 API_REFERENCE_MD,
             ),
             doc_resource(
@@ -1217,6 +1231,28 @@ Get current mount lock state.
 **Example:**
 ```json
 { "tool": "get_mount_lock", "arguments": {} }
+```"#,
+            "get_mount_allowed_bases" => r#"## get_mount_allowed_bases
+Get allowed base directories for MOUNT (mount_allowed_bases from config).
+
+**Parameters:** None
+
+**Returns:** `MountAllowedBasesResponse` with array of allowed base directory paths.
+
+**Example:**
+```json
+{ "tool": "get_mount_allowed_bases", "arguments": {} }
+```"#,
+            "get_mount_allowed_image_roots" => r#"## get_mount_allowed_image_roots
+Get allowed image roots for drive swap (mount_allowed_image_roots from config).
+
+**Parameters:** None
+
+**Returns:** `MountAllowedImageRootsResponse` with array of allowed image root directory paths.
+
+**Example:**
+```json
+{ "tool": "get_mount_allowed_image_roots", "arguments": {} }
 ```"#,
             // Script
             "load_script" => r#"## load_script

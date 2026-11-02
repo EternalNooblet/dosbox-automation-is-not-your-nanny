@@ -164,30 +164,24 @@ A few things are good to know. 7z, RAR 5 and tar archives cannot hand out one fi
 
 dosbox-automation has an HTTP REST API and a Lua scripting engine built in. You can install games, type commands, swap disks, grab screenshots, and shut down the emulator without ever touching the keyboard.
 
-To get started, enable the web server in your config and set up a token. Every API call needs one.
+To get started, enable the web server in your config. No token is required.
 
 ```ini
 [webserver]
 webserver_enabled = true
-webserver_token_file = true
 ```
 
-Start dosbox-automation, wait a couple of seconds, and the token is written to `~/.config/dosbox-automation/webserver/api_token`. You can also set the `DOSBOX_API_TOKEN` environment variable before starting if you prefer to generate your own. The Swagger UI is at `http://localhost:8386` once the server is running.
+Start dosbox-automation, and the Swagger UI is at `http://localhost:8386` once the server is running.
 
 ```bash
 # grab a screenshot
-curl -s http://localhost:8386/api/v1/video/frame \
-     -H "Authorization: Bearer $TOKEN" \
-     --output screenshot.png
+curl -s http://localhost:8386/api/v1/video/frame --output screenshot.png
 
 # read what is on screen (text modes)
-curl -s http://localhost:8386/api/v1/video/text \
-     -H "Authorization: Bearer $TOKEN"
+curl -s http://localhost:8386/api/v1/video/text
 
 # type a command
-curl -X POST http://localhost:8386/api/v1/input/type \
-     -H "Authorization: Bearer $TOKEN" \
-     -d '{"text": "dir c:\n"}'
+curl -X POST http://localhost:8386/api/v1/input/type -d '{"text": "dir c:\\n"}'
 ```
 
 Lua scripts run on the emulation thread with frame-accurate timing. They can wait for specific text on screen, navigate setup menus, swap floppy disks, and report results back through the API.

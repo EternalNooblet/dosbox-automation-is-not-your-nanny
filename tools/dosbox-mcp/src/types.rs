@@ -328,6 +328,18 @@ pub struct ControlResponse {
     pub status: String,
 }
 
+/// Mount allowed bases response
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct MountAllowedBasesResponse {
+    pub allowed_bases: Vec<String>,
+}
+
+/// Mount allowed image roots response
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct MountAllowedImageRootsResponse {
+    pub allowed_image_roots: Vec<String>,
+}
+
 /// Capture frame result
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct CaptureFrameResult {

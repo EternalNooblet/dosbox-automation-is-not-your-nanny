@@ -15,6 +15,18 @@ pub struct McpConfig {
     /// Verify TLS certificates
     #[serde(default = "default_verify_tls")]
     pub verify_tls: bool,
+
+    /// CPU cycles setting (e.g., "30000", "auto", "max")
+    #[serde(default)]
+    pub cpu_cycles: Option<String>,
+
+    /// Enable secure mode (blocks MOUNT)
+    #[serde(default)]
+    pub secure_mode: bool,
+
+    /// X11 display to use (e.g., ":99" for Xvfb). If not set, uses offscreen SDL driver.
+    #[serde(default)]
+    pub display: Option<String>,
 }
 
 fn default_base_url() -> String {
@@ -35,6 +47,9 @@ impl Default for McpConfig {
             base_url: default_base_url(),
             timeout_secs: default_timeout(),
             verify_tls: default_verify_tls(),
+            cpu_cycles: None,
+            secure_mode: false,
+            display: None,
         }
     }
 }

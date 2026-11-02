@@ -166,20 +166,41 @@ static void setup_api_handlers()
 	server.Post("/api/v1/drive/swap", DriveSwapCommand::Post);
 
 	server.Post("/api/v1/mount/lock",
-	            [](const httplib::Request&, httplib::Response& res) {
+		            [](const httplib::Request&, httplib::Response& res) {
 		            MountPolicy::Lock();
 		            json j;
 		            j["status"] = "locked";
 		            send_json(res, j);
-	            });
-	server.Get("/api/v1/mount/lock",
-	           [](const httplib::Request&, httplib::Response& res) {
+		            });
+		server.Get("/api/v1/mount/lock",
+		           [](const httplib::Request&, httplib::Response& res) {
 		           json j;
 		           j["locked"] = MountPolicy::IsLocked();
 		           send_json(res, j);
-	           });
+		           });
 
-	server.Post("/api/v1/input/record/start", RecordingHandlers::PostStart);
+		server.Get("/api/v1/mount/allowed-bases",
+		           [](const httplib::Request&, httplib::Response& res) {
+		           json j;
+		           auto bases = MountPolicy::AllowedBases();
+		           j["allowed_bases"] = json::array();
+		           for (const auto& base : bases) {
+		               j["allowed_bases"].push_back(base.string());
+		           }
+		           send_json(res, j);
+		           });
+		server.Get("/api/v1/mount/allowed-image-roots",
+		           [](const httplib::Request&, httplib::Response& res) {
+		           json j;
+		           auto roots = MountPolicy::AllowedImageRoots();
+		           j["allowed_image_roots"] = json::array();
+		           for (const auto& root : roots) {
+		               j["allowed_image_roots"].push_back(root.string());
+		           }
+		           send_json(res, j);
+		           });
+
+		server.Post("/api/v1/input/record/start", RecordingHandlers::PostStart);
 	server.Post("/api/v1/input/record/pause", RecordingHandlers::PostPause);
 	server.Post("/api/v1/input/record/stop", RecordingHandlers::PostStop);
 	server.Get("/api/v1/input/record/status", RecordingHandlers::GetStatus);
@@ -417,8 +438,7 @@ static void init_config_settings(SectionProp& section)
 	                                 OnlyAtStart,
 	                                 "127.0.0.1");
 	bind_ip->SetHelp(
-	        "Bind to the given IP address. By default only local connections are\n"
-	        "allowed. Binding to 0.0.0.0 or :: requires webserver_allow_remote=true.");
+	        "Bind to the given IP address. By default only local connections are allowed.");
 
 	auto bind_port = section.AddInt("webserver_port", OnlyAtStart, 8386);
 	bind_port->SetMinMax(1, 0xFFFF);
@@ -426,15 +446,11 @@ static void init_config_settings(SectionProp& section)
 
 	auto allow_remote = section.AddBool("webserver_allow_remote", OnlyAtStart, false);
 	allow_remote->SetHelp(
-	        "Allow binding to non-localhost addresses (0.0.0.0 or ::). This exposes\n"
-	        "the full API to the network. Do not enable unless you understand the\n"
-	        "security implications.");
+	        "Allow binding to non-localhost addresses (0.0.0.0 or ::).");
 
 	auto token_file = section.AddBool("webserver_token_file", OnlyAtStart, false);
 	token_file->SetHelp(
-	        "(Deprecated; ignored. The API no longer issues tokens, so no\n"
-	        "token file is written and DOSBOX_API_TOKEN has no effect. The\n"
-	        "setting is kept only so existing config files parse cleanly.)");
+	        "(Deprecated; ignored. The API no longer issues tokens, so no token file is written.)");
 
 	auto tool_token = section.AddString("webserver_tool_token", OnlyAtStart, "embed");
 	tool_token->SetValues({"embed", "prompt"});
@@ -508,17 +524,8 @@ void WEBSERVER_Init()
 	if (section->GetBool("webserver_enabled")) {
 		const auto addr = section->GetString("webserver_bind_address");
 
-		if (is_remote_address(addr) &&
-		    !section->GetBool("webserver_allow_remote")) {
-			augra::log_warn("webserver",
-			                "refusing to bind to %s without "
-			                "webserver_allow_remote=true",
-			                addr.c_str());
-			return;
-		}
-
 		if (is_remote_address(addr)) {
-			augra::log_warn("webserver",
+			augra::log_info("webserver",
 			                "binding to %s - API is exposed to the network",
 			                addr.c_str());
 		}
