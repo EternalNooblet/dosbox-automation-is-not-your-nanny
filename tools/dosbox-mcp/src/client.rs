@@ -19,8 +19,10 @@ impl DosBoxClient {
         let client = ClientBuilder::new()
             .timeout(timeout)
             .danger_accept_invalid_certs(!config.verify_tls)
-            .pool_idle_timeout(Duration::from_secs(90))
-            .pool_max_idle_per_host(10)
+            // dosbox-automation's httplib server closes connections after
+            // responding; pooled reuse then fails on send ("error sending
+            // request"). Disable reuse: one fresh connection per request.
+            .pool_max_idle_per_host(0)
             .build()
             .map_err(McpError::Connection)?;
 
@@ -45,7 +47,10 @@ impl DosBoxClient {
         let url = self.url(path)?;
         debug!("GET {}", url);
 
-        let response = self.client.get(&url).send().await?;
+        // dosbox-automation returns JSON only when accept: application/json
+        // is set; without it GET endpoints reply raw binary and deserialization
+        // fails ("error decoding response body").
+        let response = self.client.get(&url).header("accept", "application/json").send().await?;
         self.handle_response(response).await
     }
 

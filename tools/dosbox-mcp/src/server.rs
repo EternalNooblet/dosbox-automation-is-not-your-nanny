@@ -171,7 +171,17 @@ impl DosBoxMcpServer {
             return Err(McpErrorInternal::invalid_params("max 128 MiB per request", None));
         }
         let path = format!("/memory/{}/{}", params.offset, params.length);
-        let data: MemoryReadResponse = self.client.get(&path).await.map_err(|e| to_mcp_error_ctx(&path, e))?;
+        if let Some(save_path) = &params.save_path {
+            // Binary mode (no accept header) — emulator streams raw bytes.
+            let bytes = self.client.get_bytes(&path).await.map_err(|e| to_mcp_error_ctx(&path, e))?;
+            let size = bytes.len();
+            std::fs::write(save_path, bytes).map_err(|e| McpErrorInternal::internal_error(format!("write failed: {e}"), None))?;
+            let content = Content::json(json!({ "addr": params.offset, "saved_path": save_path, "size": size }))
+                .map_err(|e| McpErrorInternal::internal_error(e.to_string(), None))?;
+            return Ok(CallToolResult::success(vec![content]));
+        }
+        let raw: EmuMemoryRead = self.client.get(&path).await.map_err(|e| to_mcp_error_ctx(&path, e))?;
+        let data = MemoryReadResponse { addr: raw.memory.addr, data: raw.memory.data.unwrap_or_default() };
         let content = Content::json(data).map_err(|e| McpErrorInternal::internal_error(e.to_string(), None))?;
         Ok(CallToolResult::success(vec![content]))
     }
@@ -183,7 +193,8 @@ impl DosBoxMcpServer {
         }
         let path = format!("/memory/{}", params.offset);
         let body = json!({ "data": base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &params.data) });
-        let result: MemoryWriteResponse = self.client.put(&path, &body).await.map_err(|e| to_mcp_error_ctx(&path, e))?;
+        let raw: EmuMemoryWrite = self.client.put(&path, &body).await.map_err(|e| to_mcp_error_ctx(&path, e))?;
+        let result = MemoryWriteResponse { addr: raw.memory.addr };
         let content = Content::json(result).map_err(|e| McpErrorInternal::internal_error(e.to_string(), None))?;
         Ok(CallToolResult::success(vec![content]))
     }
@@ -198,6 +209,13 @@ impl DosBoxMcpServer {
             "end": end,
         });
         let result: MemorySearchResponse = self.client.post("/memory/search", &body).await.map_err(|e| to_mcp_error_ctx("/memory/search", e))?;
+        let content = Content::json(result).map_err(|e| McpErrorInternal::internal_error(e.to_string(), None))?;
+        Ok(CallToolResult::success(vec![content]))
+    }
+
+    #[tool(description = "Get the physical 4 KB page map: which pages the memory API may read/write (plain host RAM/ROM only). Returns 'readable'/'writable' strings of '1'/'0' indexed by page number, plus total_pages and page_size.")]
+    async fn get_page_map(&self) -> Result<CallToolResult, McpErrorInternal> {
+        let result: serde_json::Value = self.client.get("/memory/pagemap").await.map_err(|e| to_mcp_error_ctx("/memory/pagemap", e))?;
         let content = Content::json(result).map_err(|e| McpErrorInternal::internal_error(e.to_string(), None))?;
         Ok(CallToolResult::success(vec![content]))
     }
@@ -497,6 +515,10 @@ pub struct ReadMemoryParams {
     pub offset: u64,
     /// Number of bytes to read (max 128 MiB)
     pub length: u32,
+    /// Optional absolute path: write raw bytes to this file instead of
+    /// returning base64. Returns saved_path + size instead of data.
+    #[serde(default)]
+    pub save_path: Option<String>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]

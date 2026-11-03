@@ -140,6 +140,7 @@ static void setup_api_handlers()
 	server.Post("/api/v1/memory/freeze", FreezeHandlers::Post);
 	server.Get("/api/v1/memory/freeze", FreezeHandlers::Get);
 	server.Delete("/api/v1/memory/freeze", FreezeHandlers::Delete);
+	server.Get("/api/v1/memory/pagemap", PageMapCommand::Get);
 	server.Get("/api/v1/memory/:offset/:len", ReadMemoryCommand::Get);
 	server.Get("/api/v1/memory/:segment/:offset/:len", ReadMemoryCommand::Get);
 	server.Put("/api/v1/memory/:offset", WriteMemoryCommand::Put);

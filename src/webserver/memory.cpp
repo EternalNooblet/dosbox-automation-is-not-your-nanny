@@ -12,6 +12,7 @@
 #include "utils/string_utils.h"
 
 #include "cpu/registers.h"
+#include "cpu/paging.h"
 #include "dos/dos_memory.h"
 #include "hardware/memory.h"
 
@@ -102,6 +103,36 @@ void ReadMemoryCommand::Execute()
 
 	LOG_DEBUG("API: ReadMemoryCommand(0x%06x, %d)", effective_addr, len);
 
+	// Guest-linear mode: offset has bit 31 set. Translates through the
+	// guest's ACTIVE page directory (VCPI/EMS remaps included) instead of
+	// reading host-physical identity pages, which hold stale/zero bytes
+	// behind remaps. Physical reads never use this flag (host RAM tops at
+	// 16 MB < 0x80000000).
+	if (effective_addr & (1u << 31)) {
+		uint32_t lin      = static_cast<uint32_t>(effective_addr & ~(1u << 31));
+		uint64_t remaining = len;
+		memory.resize(len);
+		auto out = memory.data();
+		while (remaining) {
+			HostPt host;
+			if (!PAGING_TranslateLinearRead(lin, host)) {
+				memory.clear();
+				error = "guest linear address 0x" + std::to_string(lin) +
+				        " is not mapped or not readable";
+				return;
+			}
+			uint64_t chunk = DosPageSize - (lin & (DosPageSize - 1));
+			if (chunk > remaining) {
+				chunk = remaining;
+			}
+			std::memcpy(out, host, static_cast<size_t>(chunk));
+			out       += chunk;
+			lin       += static_cast<uint32_t>(chunk);
+			remaining -= chunk;
+		}
+		return;
+	}
+
 	const uint64_t mem_total = static_cast<uint64_t>(MEM_TotalPages()) *
 	                           MemPageSize;
 
@@ -122,7 +153,14 @@ void ReadMemoryCommand::Execute()
 	}
 
 	memory.resize(len);
-	MEM_BlockRead(effective_addr, memory.data(), len);
+	if (!MEM_BlockReadHost(effective_addr, memory.data(), len)) {
+		// A page's handler identity changed between the pre-check and the
+		// copy (guest remap): reject instead of dispatching handler logic.
+		memory.clear();
+		error = "Address range 0x" + std::to_string(effective_addr) + " + " +
+		        std::to_string(len) +
+		        " includes a page remapped mid-read";
+	}
 }
 
 void ReadMemoryCommand::Get(const Request& req, Response& res)
@@ -338,6 +376,31 @@ void SearchMemoryCommand::Post(const Request& req, Response& res)
 	json result;
 	result["matches"] = cmd.Matches();
 	send_json(res, result);
+}
+
+void PageMapCommand::Execute()
+{
+	total_pages = static_cast<uint32_t>(MEM_TotalPages());
+	readable.resize(total_pages);
+	writable.resize(total_pages);
+	for (uint32_t page = 0; page < total_pages; ++page) {
+		readable[page] = MEM_PageReadable(page) ? 1 : 0;
+		writable[page] = MEM_PageWritable(page) ? 1 : 0;
+	}
+}
+
+void PageMapCommand::Get(const Request& req, Response& res)
+{
+	PageMapCommand cmd;
+	cmd.WaitForCompletion();
+
+	json j;
+	j["total_pages"] = cmd.total_pages;
+	j["page_size"]   = static_cast<uint32_t>(MemPageSize);
+	// Plain '1'/'0' per page so a client can index directly by page.
+	j["readable"] = std::string(cmd.readable.begin(), cmd.readable.end());
+	j["writable"] = std::string(cmd.writable.begin(), cmd.writable.end());
+	send_json(res, j);
 }
 
 } // namespace Webserver

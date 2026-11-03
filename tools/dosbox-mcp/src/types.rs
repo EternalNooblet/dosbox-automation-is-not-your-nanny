@@ -88,13 +88,35 @@ pub struct SetCyclesResponse {
 /// Memory read response (base64 encoded)
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct MemoryReadResponse {
+    pub addr: u64, // effective physical address used by the emulator
     pub data: String, // base64 encoded
+}
+
+/// Emulator wire shape for GET /memory/:offset/:len
+#[derive(Debug, Clone, Deserialize)]
+pub struct EmuMemoryRead {
+    #[serde(default)]
+    pub registers: Option<serde_json::Value>,
+    pub memory: EmuMemoryPayload,
+}
+
+/// Emulator wire shape for PUT /memory/:offset
+#[derive(Debug, Clone, Deserialize)]
+pub struct EmuMemoryWrite {
+    pub memory: EmuMemoryPayload,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct EmuMemoryPayload {
+    pub addr: u64,
+    #[serde(default)]
+    pub data: Option<String>,
 }
 
 /// Memory write response
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct MemoryWriteResponse {
-    pub status: String,
+    pub addr: u64,
 }
 
 /// Memory search response
@@ -310,6 +332,7 @@ pub struct PortWriteResponse {
 
 /// DOS internals
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct DosInternals {
     pub list_of_lists: u64,
     pub dos_swappable_area: u64,
@@ -318,9 +341,11 @@ pub struct DosInternals {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct McbBlock {
     pub segment: u32,
-    pub type_: String,
+    #[serde(rename = "type")]
+    pub type_: u8,
     pub psp_segment: u32,
     pub size_paras: u32,
     pub size_bytes: u32,

@@ -164,11 +164,22 @@ PageHandler * MEM_GetPageHandler(Bitu phys_page) {
 }
 
 bool MEM_PageReadable(Bitu phys_page) {
+	if (phys_page >= memory.pages.size()) {
+		return false;
+	}
 	const PageHandler *handler = MEM_GetPageHandler(phys_page);
+	// Only plain host RAM and ROM may be dispatched from the API path:
+	// these read straight from the host buffer with no handler logic.
+	// Anything else (EMS/VCPI remap handlers, MMIO, code-page dynrec
+	// bookkeeping) can deadlock the bridge mutex mid-dispatch — a 4 KB
+	// probe at a remapped page wedged every API thread on 2026-11-02.
 	return handler == &ram_page_handler || handler == &rom_page_handler;
 }
 
 bool MEM_PageWritable(Bitu phys_page) {
+	if (phys_page >= memory.pages.size()) {
+		return false;
+	}
 	return MEM_GetPageHandler(phys_page) == &ram_page_handler;
 }
 
@@ -210,6 +221,75 @@ void MEM_BlockRead(PhysPt pt,void * data,Bitu size) {
 	while (size--) {
 		*write++=mem_readb_inline(pt++);
 	}
+}
+
+// Dispatch-free host-buffer read for the API path. Copies page by page
+// straight from the host page backing after re-checking handler identity
+// (plain RAM/ROM only). Never calls handler read logic: EMS/VCPI remap
+// handlers and code-page bookkeeping can wedge or kill the webserver
+// connection mid-dispatch (observed 2026-11-02 on a running VCPI guest).
+bool MEM_BlockReadHost(PhysPt pt, void* data, Bitu size) {
+	auto out = static_cast<uint8_t *>(data);
+	while (size) {
+		const Bitu page = pt / DosPageSize;
+		const Bitu off  = pt % DosPageSize;
+		Bitu chunk = DosPageSize - off;
+		if (chunk > size) {
+			chunk = size;
+		}
+		const PageHandler* handler = MEM_GetPageHandler(page);
+		if (handler != &ram_page_handler && handler != &rom_page_handler) {
+			return false;
+		}
+		std::memcpy(out, memory.pages[page].bytes + off, chunk);
+		out  += chunk;
+		pt   += chunk;
+		size -= chunk;
+	}
+	return true;
+}
+
+// Host read pointer for one physical page, for handlers whose read path
+// is pure host-buffer arithmetic (plain RAM/ROM and memhandle-backed
+// pages). Handlers that compute nothing (illegal/init/MMIO/VGA device
+// pages) return nullptr -> false, so the API never dispatches them.
+bool MEM_PageReadHostPt(Bitu phys_page, HostPt& host) {
+	if (phys_page >= memory.pages.size()) {
+		return false;
+	}
+	PageHandler* handler = MEM_GetPageHandler(phys_page);
+	if (!(handler->flags & PFLAG_READABLE)) {
+		return false;
+	}
+	const HostPt hp = handler->GetHostReadPt(phys_page);
+	if (!hp) {
+		return false;
+	}
+	host = hp;
+	return true;
+}
+
+// Dispatch-free read of arbitrary physical addresses using the wider
+// MEM_PageReadHostPt predicate (plain RAM/ROM + memhandle-backed pages).
+bool MEM_PhysicalReadHost(PhysPt pt, void* data, Bitu size) {
+	auto out = static_cast<uint8_t *>(data);
+	while (size) {
+		const Bitu page = pt / DosPageSize;
+		const Bitu off  = pt % DosPageSize;
+		Bitu chunk = DosPageSize - off;
+		if (chunk > size) {
+			chunk = size;
+		}
+		HostPt host;
+		if (!MEM_PageReadHostPt(page, host)) {
+			return false;
+		}
+		std::memcpy(out, host + off, chunk);
+		out  += chunk;
+		pt   += chunk;
+		size -= chunk;
+	}
+	return true;
 }
 
 void MEM_BlockWrite(PhysPt pt, const void *data, size_t size)

@@ -758,6 +758,51 @@ bool PAGING_ForcePageInit(Bitu lin_addr) {
 	return false;
 }
 
+// Linear-address translation for the webserver API read path. Raw walk
+// of the guest's ACTIVE page directory (paging.cr3): directory entry ->
+// page-table entry -> physical page -> host backing pointer. Every entry
+// read uses MEM_PhysicalReadHost (dispatch-free host copies), and the
+// final page is resolved via MEM_PageReadHostPt (pure address
+// arithmetic). No engine machinery is dispatched — TLB init, page-table
+// setup callbacks, and handler read logic all kill the webserver
+// connection on a running VCPI guest (observed 2026-11-02).
+bool PAGING_TranslateLinearRead(uint32_t lin_addr, HostPt& host) {
+	if (!paging.enabled) {
+		// Paging off (real mode): linear == physical identity.
+		HostPt base;
+		if (!MEM_PageReadHostPt(lin_addr >> 12, base)) {
+			return false;
+		}
+		host = base + (lin_addr & 0xfff);
+		return true;
+	}
+
+	uint32_t dir_entry = 0;
+	if (!MEM_PhysicalReadHost(paging.cr3 + ((lin_addr >> 22) << 2), &dir_entry, 4)) {
+		return false;
+	}
+	if (!(dir_entry & 1u)) {
+		return false; // page-table page not present
+	}
+
+	// entry base bits 12-31 hold the page-table page number; byte address = base << 12.
+	const uint32_t pt_addr = (dir_entry >> 12) << 12;
+	uint32_t page_entry = 0;
+	if (!MEM_PhysicalReadHost(pt_addr + (((lin_addr >> 12) & 0x3ffu) << 2), &page_entry, 4)) {
+		return false;
+	}
+	if (!(page_entry & 1u)) {
+		return false; // page not present
+	}
+
+	HostPt base;
+	if (!MEM_PageReadHostPt(page_entry >> 12, base)) {
+		return false;
+	}
+	host = base + (lin_addr & 0xfff);
+	return true;
+}
+
 #if defined(USE_FULL_TLB)
 void PAGING_InitTLB()
 {

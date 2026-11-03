@@ -24,7 +24,21 @@ void Command::WaitForCompletion(const uint32_t timeout_ms)
 
 void Bridge::ExecuteCommand(Command& cmd, const uint32_t timeout_ms)
 {
-	std::unique_lock<std::mutex> lock(mtx);
+	// Bounded lock acquisition: if the emulation thread is wedged inside
+	// a command's Execute() it holds this mutex forever. An unbounded
+	// lock would then hang every API thread until the HTTP client's 30 s
+	// timeout (observed 2026-11-02: one wedged memory command made every
+	// later request unanswered). Fail fast with a distinct message so a
+	// wedge is visible instead of turning into silent timeouts.
+	std::unique_lock<std::mutex> lock(mtx, std::defer_lock);
+	const auto deadline = std::chrono::steady_clock::now() +
+	                      std::chrono::milliseconds(timeout_ms);
+	while (!lock.try_lock()) {
+		if (std::chrono::steady_clock::now() >= deadline) {
+			throw std::runtime_error("Command bridge stalled (emulator thread holds the queue)");
+		}
+		std::this_thread::sleep_for(std::chrono::milliseconds(5));
+	}
 
 	cmd.done = false;
 	queue.push_back(&cmd);

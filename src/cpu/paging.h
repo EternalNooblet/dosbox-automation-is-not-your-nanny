@@ -87,6 +87,7 @@ void PAGING_UnlinkPages(Bitu lin_page,Bitu pages);
 void PAGING_MapPage(Bitu lin_page,Bitu phys_page);
 bool PAGING_MakePhysPage(Bitu & page);
 bool PAGING_ForcePageInit(Bitu lin_addr);
+bool PAGING_TranslateLinearRead(uint32_t lin_addr, HostPt& host);
 
 void MEM_SetLFB(Bitu page, Bitu pages, PageHandler *handler, PageHandler *mmiohandler);
 void MEM_SetPageHandler(Bitu phys_page, Bitu pages, PageHandler * handler);

@@ -75,6 +75,21 @@ private:
 std::vector<uint32_t> ScanBufferForValue(const std::vector<uint8_t>& buf,
                                          uint32_t value, int width);
 
+// Map every physical 4 KB page: 1 when the webserver memory commands
+// may touch it (plain host RAM/ROM), 0 for unmapped/device/remap/code
+// pages. Lets a caller enumerate readable spans in one round-trip
+// instead of probing page by page.
+class PageMapCommand : public Command {
+public:
+    void Execute() override;
+    static void Get(const httplib::Request& req, httplib::Response& res);
+
+private:
+    std::vector<uint8_t> readable = {};
+    std::vector<uint8_t> writable = {};
+    uint32_t total_pages          = {};
+};
+
 class SearchMemoryCommand : public Command {
 public:
 	SearchMemoryCommand(uint32_t start, uint32_t end, uint32_t value, int width)
