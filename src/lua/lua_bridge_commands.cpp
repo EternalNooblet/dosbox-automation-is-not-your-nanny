@@ -150,7 +150,25 @@ void LuaLoadCommand::Post(const httplib::Request& req, httplib::Response& res)
 		return;
 	}
 
-	const auto body_check = ScriptValidator::ValidateBody(req.body);
+	// JSON callers (the MCP server) send the script either as a JSON
+	// string or as {"script": "..."}; unwrap to the raw source.
+	std::string script_source = req.body;
+	if (req.get_header_value("Content-Type").starts_with("application/json")) {
+		try {
+			auto parsed = json::parse(req.body);
+			if (parsed.is_string()) {
+				script_source = parsed.get<std::string>();
+			} else if (parsed.is_object() && parsed.contains("script") &&
+			           parsed["script"].is_string()) {
+				script_source = parsed["script"].get<std::string>();
+			}
+		} catch (...) {
+			// Not JSON after all; fall through with the raw body, the
+			// validator below reports any real problem.
+		}
+	}
+
+	const auto body_check = ScriptValidator::ValidateBody(script_source);
 	if (!body_check.ok) {
 		res.status = body_check.http_status;
 		json err;
@@ -173,7 +191,7 @@ void LuaLoadCommand::Post(const httplib::Request& req, httplib::Response& res)
 		return;
 	}
 
-	LuaLoadCommand cmd(req.body, params);
+	LuaLoadCommand cmd(script_source, params);
 	cmd.WaitForCompletion(5000);
 
 	if (!cmd.error.empty()) {

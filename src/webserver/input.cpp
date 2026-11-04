@@ -18,6 +18,7 @@
 #include "utils/string_utils.h"
 
 #include <algorithm>
+#include <cctype>
 #include <chrono>
 
 #include "nlohmann/json.hpp"
@@ -145,6 +146,71 @@ static const std::unordered_map<std::string, MouseButtonId> button_name_map = {
         {"middle", MouseButtonId::Middle},
 };
 
+// Friendly aliases accepted in addition to the canonical KBD_* names, so
+// {"key":"enter"} works like {"key":"KBD_enter"}. Lookup is case-insensitive
+// and the KBD_ prefix is optional.
+static const std::unordered_map<std::string, std::string> key_alias_map = {
+        {"enter", "KBD_enter"}, {"return", "KBD_enter"}, {"esc", "KBD_esc"},
+        {"escape", "KBD_esc"}, {"space", "KBD_space"}, {"tab", "KBD_tab"},
+        {"backspace", "KBD_backspace"}, {"delete", "KBD_delete"},
+        {"insert", "KBD_insert"}, {"home", "KBD_home"}, {"end", "KBD_end"},
+        {"pageup", "KBD_pageup"}, {"pagedown", "KBD_pagedown"},
+        {"page_up", "KBD_pageup"}, {"page_down", "KBD_pagedown"},
+        {"left", "KBD_left"}, {"right", "KBD_right"}, {"up", "KBD_up"},
+        {"down", "KBD_down"}, {"leftshift", "KBD_leftshift"},
+        {"rightshift", "KBD_rightshift"}, {"shift", "KBD_leftshift"},
+        {"leftctrl", "KBD_leftctrl"}, {"rightctrl", "KBD_rightctrl"},
+        {"ctrl", "KBD_leftctrl"}, {"control", "KBD_leftctrl"},
+        {"leftalt", "KBD_leftalt"}, {"rightalt", "KBD_rightalt"},
+        {"alt", "KBD_leftalt"}, {"capslock", "KBD_capslock"},
+        {"caps_lock", "KBD_capslock"}, {"numlock", "KBD_numlock"},
+        {"scrolllock", "KBD_scrolllock"}, {"printscreen", "KBD_printscreen"},
+        {"pause", "KBD_pause"}, {"grave", "KBD_grave"}, {"minus", "KBD_minus"},
+        {"equals", "KBD_equals"}, {"backslash", "KBD_backslash"},
+        {"leftbracket", "KBD_leftbracket"}, {"rightbracket", "KBD_rightbracket"},
+        {"semicolon", "KBD_semicolon"}, {"quote", "KBD_quote"},
+        {"period", "KBD_period"}, {"comma", "KBD_comma"}, {"slash", "KBD_slash"},
+        {"kpenter", "KBD_kpenter"}, {"kpdivide", "KBD_kpdivide"},
+        {"kpmultiply", "KBD_kpmultiply"}, {"kpminus", "KBD_kpminus"},
+        {"kpplus", "KBD_kpplus"}, {"kpperiod", "KBD_kpperiod"},
+};
+
+static bool LookupKey(const std::string& raw, KBD_KEYS& out)
+{
+	auto name = upcase(raw);
+	// Strip a single leading KBD_ so "enter", "ENTER" and "KBD_enter" match.
+	auto bare = name;
+	if (bare.starts_with("KBD_")) {
+		bare = bare.substr(4);
+	}
+	auto it = key_name_map.find("KBD_" + bare);
+	if (it == key_name_map.end()) {
+		auto alias = key_alias_map.find([&] {
+			auto lower = bare;
+			std::transform(lower.begin(), lower.end(), lower.begin(),
+			               [](unsigned char c) { return std::tolower(c); });
+			return lower;
+		}());
+		if (alias != key_alias_map.end()) {
+			it = key_name_map.find(alias->second);
+		}
+	}
+	if (it == key_name_map.end()) {
+		return false;
+	}
+	out = it->second;
+	return true;
+}
+
+// Last cursor position in injected (API) coordinates, tracked across
+// every dispatched mouse_move. Warp is implemented as a relative delta
+// from this tracked position so PS/2/serial interfaces (whose InjectWarp
+// is a no-op) still move; the DOS driver additionally gets InjectWarp.
+static std::mutex mouse_pos_mutex;
+static float tracked_x = 0.0f;
+static float tracked_y = 0.0f;
+static bool tracked_valid = false;
+
 static std::mutex pending_mutex;
 static std::queue<InputEvent> pending_events;
 static bool in_replay_dispatch = false;
@@ -157,14 +223,30 @@ static void dispatch_input_event(const InputEvent& ev)
 	case InputEvent::Type::Key:
 		KEYBOARD_AddKey(static_cast<KBD_KEYS>(ev.key), ev.pressed);
 		break;
-	case InputEvent::Type::MouseMove:
+	case InputEvent::Type::MouseMove: {
+		std::lock_guard<std::mutex> mlock(mouse_pos_mutex);
 		if (ev.x_rel != 0.0f || ev.y_rel != 0.0f) {
 			MOUSE_InjectMoved(ev.x_rel, ev.y_rel);
+			tracked_x += ev.x_rel;
+			tracked_y += ev.y_rel;
+			tracked_valid = true;
 		}
 		if (ev.has_abs) {
+			// InjectWarp is a no-op on PS/2/serial; move those by delta.
+			if (tracked_valid) {
+				const float dx = ev.x_abs - tracked_x;
+				const float dy = ev.y_abs - tracked_y;
+				if (dx != 0.0f || dy != 0.0f) {
+					MOUSE_InjectMoved(dx, dy);
+				}
+			}
 			MOUSE_InjectWarp(ev.x_abs, ev.y_abs);
+			tracked_x = ev.x_abs;
+			tracked_y = ev.y_abs;
+			tracked_valid = true;
 		}
 		break;
+	}
 	case InputEvent::Type::MouseButton: {
 		auto it = button_name_map.find(ev.button);
 		if (it != button_name_map.end()) {
@@ -454,15 +536,16 @@ void InputSequenceCommand::Post(const httplib::Request& req, httplib::Response& 
 		if (type_str == "key") {
 			ev.type             = InputEvent::Type::Key;
 			const auto key_name = jev.value("key", "KBD_NONE");
-			auto it             = key_name_map.find(key_name);
-			if (it == key_name_map.end()) {
+			KBD_KEYS parsed_key = KBD_NONE;
+			if (!LookupKey(key_name, parsed_key)) {
 				res.status = 400;
 				json err;
-				err["error"] = "Unknown key: " + key_name;
+				err["error"] = "Unknown key: " + key_name +
+				               " (use a KBD_* name like KBD_enter, or a friendly alias like enter/esc/space/left; single letters a-z, 0-9 and f1-f12 are also accepted)";
 				send_json(res, err);
 				return;
 			}
-			ev.key     = static_cast<int>(it->second);
+			ev.key     = static_cast<int>(parsed_key);
 			ev.pressed = jev.value("pressed", true);
 		} else if (type_str == "mouse_move") {
 			ev.type  = InputEvent::Type::MouseMove;
@@ -1005,6 +1088,19 @@ void InputTypeCommand::Post(const httplib::Request& req, httplib::Response& res)
 	json result;
 	result["status"] = "ok";
 	result["chars"]  = text.size();
+	send_json(res, result);
+}
+
+void MousePositionHandlers::Get(const httplib::Request&, httplib::Response& res)
+{
+	std::lock_guard<std::mutex> lock(mouse_pos_mutex);
+	json result;
+	result["x"] = tracked_x;
+	result["y"] = tracked_y;
+	result["valid"] = tracked_valid;
+	result["note"] = "last injected position in API coordinates; exact for "
+	                 "injected moves, best-effort if the guest clamps or "
+	                 "recentres the cursor (PS/2 has no position query)";
 	send_json(res, result);
 }
 

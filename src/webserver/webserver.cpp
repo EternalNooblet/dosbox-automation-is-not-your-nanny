@@ -152,6 +152,7 @@ static void setup_api_handlers()
 
 	server.Post("/api/v1/input/sequence", InputSequenceCommand::Post);
 	server.Post("/api/v1/input/type", InputTypeCommand::Post);
+	server.Get("/api/v1/input/mouse", MousePositionHandlers::Get);
 
 	server.Get("/api/v1/video/frame", VideoHandlers::GetFrame);
 	server.Get("/api/v1/video/frame/info", VideoHandlers::GetFrameInfo);
@@ -167,10 +168,28 @@ static void setup_api_handlers()
 	server.Post("/api/v1/drive/swap", DriveSwapCommand::Post);
 
 	server.Post("/api/v1/mount/lock",
-			[](const httplib::Request&, httplib::Response& res) {
-			MountPolicy::Lock();
+			[](const httplib::Request& req, httplib::Response& res) {
+			bool want_locked = true;
+			if (!req.body.empty()) {
+				try {
+					auto body = json::parse(req.body);
+					want_locked = body.value("locked", true);
+				} catch (...) {
+					res.status = httplib::StatusCode::BadRequest_400;
+					json err;
+					err["error"] = "body must be JSON with a 'locked' boolean";
+					send_json(res, err);
+					return;
+				}
+			}
+			if (want_locked) {
+				MountPolicy::Lock();
+			} else {
+				MountPolicy::Unlock();
+			}
 			json j;
-			j["status"] = "locked";
+			j["status"] = want_locked ? "locked" : "unlocked";
+			j["locked"] = want_locked;
 			send_json(res, j);
 			});
 		server.Get("/api/v1/mount/lock",

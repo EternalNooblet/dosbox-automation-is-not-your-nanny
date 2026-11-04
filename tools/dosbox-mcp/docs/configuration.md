@@ -158,7 +158,7 @@ dosbox-mcp --secure-mode
 dosbox-mcp --no-auto-start --base-url http://remote-host:8386
 ```
 
-**Note:** By default (`--secure-mode` off), MOUNT is allowed from both guest commands and API. The mount policy still enforces `mount_allowed_bases` / `mount_allowed_image_roots` from the primary config file.
+**Note:** By default (`--secure-mode` off), MOUNT is allowed from both guest commands and API. There is no mount whitelist: any existing directory may be mounted (system paths, symlinks to system paths, and non-directories are still refused). The old `mount_allowed_bases` / `mount_allowed_image_roots` settings and their MCP tools were removed.
 
 ---
 
@@ -213,7 +213,7 @@ Another process owns port 8386, or the emulator is still booting. Check what hol
 The launcher auto-detects `libiir.so` relative to the binary's build directory (following symlinks) and sets `LD_LIBRARY_PATH` for the child process. No manual export is needed for build-dir or symlinked installs.
 
 ### Permission denied on disk swap
-Mounts must be within allowed paths (`mount_allowed_bases` / `mount_allowed_image_roots` in primary config).
+Mounts must be existing directories (system paths and symlinks to them are refused). There is no whitelist config; use `mount_drive` or type MOUNT.
 
 ---
 

@@ -85,7 +85,9 @@ async fn main() -> Result<()> {
     // Initialize tracing
     let filter = EnvFilter::try_from_default_env()
         .unwrap_or_else(|_| EnvFilter::new(args.log_level.clone()));
-    fmt().with_env_filter(filter).init();
+    // Logs MUST go to stderr: stdout is the MCP stdio transport and any
+    // log line there corrupts JSON-RPC framing for the client.
+    fmt().with_env_filter(filter).with_writer(std::io::stderr).init();
 
     info!("Starting dosbox-mcp server");
 

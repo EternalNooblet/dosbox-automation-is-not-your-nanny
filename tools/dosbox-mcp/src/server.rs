@@ -20,6 +20,131 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Mutex as AsyncMutex;
 
+/// Convert a '1'/'0' page-flag string into coalesced [start,end_excl)
+/// page ranges so callers don't have to parse a ~48 KB flag string.
+fn flag_ranges(s: &str) -> Vec<[u64; 2]> {
+    let mut out = Vec::new();
+    let mut start: Option<u64> = None;
+    for (i, ch) in s.chars().enumerate() {
+        // Emulator emits raw 0x01/0x00 bytes (JSON \u0001), not '1'/'0'.
+        let on = ch == '1' || ch == '\u{1}';
+        match (on, start) {
+            (true, None) => start = Some(i as u64),
+            (false, Some(st)) => {
+                out.push([st, i as u64]);
+                start = None;
+            }
+            _ => {}
+        }
+    }
+    if let Some(st) = start {
+        out.push([st, s.chars().count() as u64]);
+    }
+    out
+}
+
+/// Parse an emulator raw frame (header: w u32, h u32, pitch i32,
+/// pixel_format u8, pal_count u16, optional palette, then pixels) and
+/// compute black ratio / luma stats / a simple FNV-1a hash. Pixel
+/// formats (PixelFormat enum): 8=Indexed8, 15=RGB555, 16=RGB565,
+/// 24=BGR24, 32=BGRX32.
+fn analyze_raw_frame(bytes: &[u8]) -> Result<FrameAnalysis, String> {
+    if bytes.len() < 15 {
+        return Err(format!("raw frame too short: {} bytes", bytes.len()));
+    }
+    let w = u32::from_le_bytes(bytes[0..4].try_into().unwrap()) as usize;
+    let h = u32::from_le_bytes(bytes[4..8].try_into().unwrap()) as usize;
+    let pitch = i32::from_le_bytes(bytes[8..12].try_into().unwrap()).abs() as usize;
+    let pf = bytes[12];
+    let pal_count = u16::from_le_bytes(bytes[13..15].try_into().unwrap()) as usize;
+    let header = 15 + pal_count * 3;
+    if bytes.len() < header + pitch * h {
+        return Err(format!(
+            "raw frame truncated: {} bytes, need {}",
+            bytes.len(),
+            header + pitch * h
+        ));
+    }
+    let palette = &bytes[15..header];
+    let pixels = &bytes[header..header + pitch * h];
+    let bpp: usize = match pf {
+        8 => 1,
+        15 | 16 => 2,
+        24 => 3,
+        32 => 4,
+        _ => return Err(format!("unknown pixel format {pf}")),
+    };
+    let pf_name = match pf {
+        8 => "Indexed8",
+        15 => "RGB555_Packed16",
+        16 => "RGB565_Packed16",
+        24 => "BGR24_ByteArray",
+        32 => "BGRX32_ByteArray",
+        _ => "Unknown",
+    };
+    let mut black: usize = 0;
+    let mut total: usize = 0;
+    let mut sum: u64 = 0;
+    let mut min_l = 255u8;
+    let mut max_l = 0u8;
+    let mut hash: u64 = 0xcbf29ce484222325;
+    for y in 0..h {
+        let row = &pixels[y * pitch..y * pitch + w * bpp];
+        for px in row.chunks_exact(bpp) {
+            let (r, g, b): (u8, u8, u8) = match pf {
+                8 => {
+                    let idx = px[0] as usize * 3;
+                    if idx + 2 < palette.len() {
+                        (palette[idx], palette[idx + 1], palette[idx + 2])
+                    } else {
+                        (0, 0, 0)
+                    }
+                }
+                15 => {
+                    let v = u16::from_le_bytes([px[0], px[1]]);
+                    (
+                        (((v >> 10) & 0x1F) * 255 / 31) as u8,
+                        (((v >> 5) & 0x1F) * 255 / 31) as u8,
+                        ((v & 0x1F) * 255 / 31) as u8,
+                    )
+                }
+                16 => {
+                    let v = u16::from_le_bytes([px[0], px[1]]);
+                    (
+                        (((v >> 11) & 0x1F) * 255 / 31) as u8,
+                        (((v >> 5) & 0x3F) * 255 / 63) as u8,
+                        ((v & 0x1F) * 255 / 31) as u8,
+                    )
+                }
+                24 => (px[2], px[1], px[0]),
+                _ => (px[2], px[1], px[0]),
+            };
+            let luma = ((r as u32 * 299 + g as u32 * 587 + b as u32 * 114) / 1000) as u8;
+            if luma == 0 {
+                black += 1;
+            }
+            sum += luma as u64;
+            min_l = min_l.min(luma);
+            max_l = max_l.max(luma);
+            hash ^= luma as u64;
+            hash = hash.wrapping_mul(0x100000001b3);
+            total += 1;
+        }
+    }
+    let black_ratio = if total > 0 { black as f64 / total as f64 } else { 1.0 };
+    Ok(FrameAnalysis {
+        width: w as u32,
+        height: h as u32,
+        pixel_format: pf_name.to_string(),
+        black_ratio,
+        mean_luma: if total > 0 { sum as f64 / total as f64 } else { 0.0 },
+        min_luma: min_l,
+        max_luma: max_l,
+        hash: format!("{hash:016x}"),
+        all_black: black_ratio > 0.999,
+    })
+}
+
 // Convert to error with context
 fn to_mcp_error_ctx(endpoint: &str, err: McpError) -> McpErrorInternal {
     McpErrorInternal::internal_error(format!("{} - {}", endpoint, err), None)
@@ -186,13 +311,14 @@ impl DosBoxMcpServer {
         Ok(CallToolResult::success(vec![content]))
     }
 
-    #[tool(description = "Write memory at offset (max 128 MiB per request). Data is base64-encoded.")]
+    #[tool(description = "Write memory at offset (max 128 MiB per request). 'data' accepts either a base64 string (e.g. \"AQID\") or an array of byte values (e.g. [1,2,3]).")]
     async fn write_memory(&self, Parameters(params): Parameters<WriteMemoryParams>) -> Result<CallToolResult, McpErrorInternal> {
-        if params.data.len() > 128 * 1024 * 1024 {
+        let data_bytes = params.data_bytes().map_err(|e| McpErrorInternal::invalid_params(e, None))?;
+        if data_bytes.len() > 128 * 1024 * 1024 {
             return Err(McpErrorInternal::invalid_params("max 128 MiB per request", None));
         }
         let path = format!("/memory/{}", params.offset);
-        let body = json!({ "data": base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &params.data) });
+        let body = json!({ "data": base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &data_bytes) });
         let raw: EmuMemoryWrite = self.client.put(&path, &body).await.map_err(|e| to_mcp_error_ctx(&path, e))?;
         let result = MemoryWriteResponse { addr: raw.memory.addr };
         let content = Content::json(result).map_err(|e| McpErrorInternal::internal_error(e.to_string(), None))?;
@@ -215,7 +341,19 @@ impl DosBoxMcpServer {
 
     #[tool(description = "Get the physical 4 KB page map: which pages the memory API may read/write (plain host RAM/ROM only). Returns 'readable'/'writable' strings of '1'/'0' indexed by page number, plus total_pages and page_size.")]
     async fn get_page_map(&self) -> Result<CallToolResult, McpErrorInternal> {
-        let result: serde_json::Value = self.client.get("/memory/pagemap").await.map_err(|e| to_mcp_error_ctx("/memory/pagemap", e))?;
+        let mut result: serde_json::Value = self.client.get("/memory/pagemap").await.map_err(|e| to_mcp_error_ctx("/memory/pagemap", e))?;
+        // Add coalesced ranges alongside the raw flag strings so the
+        // readable/writable page sets are usable without parsing ~48 KB.
+        if let Some(obj) = result.as_object_mut() {
+            if let Some(r) = obj.get("readable").and_then(|v| v.as_str()).map(|s| s.to_string()) {
+                let ranges = flag_ranges(&r);
+                obj.insert("readable_ranges".into(), json!(ranges));
+            }
+            if let Some(w) = obj.get("writable").and_then(|v| v.as_str()).map(|s| s.to_string()) {
+                let ranges = flag_ranges(&w);
+                obj.insert("writable_ranges".into(), json!(ranges));
+            }
+        }
         let content = Content::json(result).map_err(|e| McpErrorInternal::internal_error(e.to_string(), None))?;
         Ok(CallToolResult::success(vec![content]))
     }
@@ -304,22 +442,28 @@ impl DosBoxMcpServer {
         } else {
             base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &bytes)
         };
+        // Best-effort dimensions from the frame-info endpoint; a failure
+        // here must not fail the capture itself.
+        let (width, height) = match self.client.get::<FrameInfo>("/video/frame/info").await {
+            Ok(info) => (Some(info.width), Some(info.height)),
+            Err(_) => (None, None),
+        };
         let result = CaptureFrameResult {
             data,
             size: bytes.len(),
             format: params.format,
             mode: params.mode,
-            width: None,
-            height: None,
+            width,
+            height,
             saved_path,
         };
         let content = Content::json(result).map_err(|e| McpErrorInternal::internal_error(e.to_string(), None))?;
         Ok(CallToolResult::success(vec![content]))
     }
 
-    #[tool(description = "Get frame dimensions and format info")]
+    #[tool(description = "Get frame dimensions and format info, including the video-mode block (graphics vs text, BIOS mode, double-scan).")]
     async fn get_frame_info(&self) -> Result<CallToolResult, McpErrorInternal> {
-        let info: FrameInfo = self.client.get("/video/frame/info").await.map_err(|e| to_mcp_error_ctx("/video/frame/info", e))?;
+        let info: FrameInfoFull = self.client.get("/video/frame/info").await.map_err(|e| to_mcp_error_ctx("/video/frame/info", e))?;
         let content = Content::json(info).map_err(|e| McpErrorInternal::internal_error(e.to_string(), None))?;
         Ok(CallToolResult::success(vec![content]))
     }
@@ -371,7 +515,7 @@ impl DosBoxMcpServer {
         Ok(CallToolResult::success(vec![content]))
     }
 
-    #[tool(description = "Lock or unlock drive mounts")]
+    #[tool(description = "Lock or unlock drive mounts. lock=true refuses all further mounts; lock=false re-allows them (automation endpoint only).")]
     async fn lock_mounts(&self, Parameters(params): Parameters<LockMountsParams>) -> Result<CallToolResult, McpErrorInternal> {
         let body = json!({ "locked": params.lock });
         let result: MountLockResponse = self.client.post("/mount/lock", &body).await.map_err(|e| to_mcp_error_ctx("/mount/lock", e))?;
@@ -390,9 +534,10 @@ impl DosBoxMcpServer {
 
     #[tool(description = "Load a Lua script")]
     async fn load_script(&self, Parameters(params): Parameters<LoadScriptParams>) -> Result<CallToolResult, McpErrorInternal> {
-        // The API takes the script as text/plain body with query params
+        // The API takes the script as text/plain body with query params.
+        // Sending it as JSON (the old behaviour) is rejected with 415.
         let path = format!("/script/load{}", params.name.as_ref().map(|n| format!("?name={}", urlencoding::encode(n))).unwrap_or_default());
-        let result: ScriptLoadResponse = self.client.post(&path, &params.script).await.map_err(|e| to_mcp_error_ctx(&path, e))?;
+        let result: ScriptLoadResponse = self.client.post_text(&path, &params.script).await.map_err(|e| to_mcp_error_ctx(&path, e))?;
         let content = Content::json(result).map_err(|e| McpErrorInternal::internal_error(e.to_string(), None))?;
         Ok(CallToolResult::success(vec![content]))
     }
@@ -491,9 +636,152 @@ impl DosBoxMcpServer {
         let content = Content::json(internals).map_err(|e| McpErrorInternal::internal_error(e.to_string(), None))?;
         Ok(CallToolResult::success(vec![content]))
     }
+
+    // ============ Mixer Tools (previously missing from MCP) ============
+
+    #[tool(description = "Get mixer status: master volume, mute state, sample rate, and all channels")]
+    async fn get_mixer_status(&self) -> Result<CallToolResult, McpErrorInternal> {
+        let status: MixerStatus = self.client.get("/mixer").await.map_err(|e| to_mcp_error_ctx("/mixer", e))?;
+        let content = Content::json(status).map_err(|e| McpErrorInternal::internal_error(e.to_string(), None))?;
+        Ok(CallToolResult::success(vec![content]))
+    }
+
+    #[tool(description = "Set master mixer volume (left/right, non-negative; 1.0 = unity)")]
+    async fn set_mixer_volume(&self, Parameters(params): Parameters<MixerVolumeParams>) -> Result<CallToolResult, McpErrorInternal> {
+        let body = json!({ "left": params.left, "right": params.right });
+        let result: MixerResult = self.client.put("/mixer/volume", &body).await.map_err(|e| to_mcp_error_ctx("/mixer/volume", e))?;
+        let content = Content::json(result).map_err(|e| McpErrorInternal::internal_error(e.to_string(), None))?;
+        Ok(CallToolResult::success(vec![content]))
+    }
+
+    #[tool(description = "Mute the mixer")]
+    async fn mute_mixer(&self) -> Result<CallToolResult, McpErrorInternal> {
+        let result: MixerResult = self.client.post("/mixer/mute", &json!({})).await.map_err(|e| to_mcp_error_ctx("/mixer/mute", e))?;
+        let content = Content::json(result).map_err(|e| McpErrorInternal::internal_error(e.to_string(), None))?;
+        Ok(CallToolResult::success(vec![content]))
+    }
+
+    #[tool(description = "Unmute the mixer")]
+    async fn unmute_mixer(&self) -> Result<CallToolResult, McpErrorInternal> {
+        let result: MixerResult = self.client.post("/mixer/unmute", &json!({})).await.map_err(|e| to_mcp_error_ctx("/mixer/unmute", e))?;
+        let content = Content::json(result).map_err(|e| McpErrorInternal::internal_error(e.to_string(), None))?;
+        Ok(CallToolResult::success(vec![content]))
+    }
+
+    #[tool(description = "Set a single mixer channel volume by name (e.g. \"PC Speaker\", \"AdLib\"); get names from get_mixer_status")]
+    async fn set_mixer_channel_volume(&self, Parameters(params): Parameters<MixerChannelParams>) -> Result<CallToolResult, McpErrorInternal> {
+        let path = format!("/mixer/channel/{}", urlencoding::encode(&params.name));
+        let body = json!({ "left": params.left, "right": params.right });
+        let result: MixerResult = self.client.put(&path, &body).await.map_err(|e| to_mcp_error_ctx(&path, e))?;
+        let content = Content::json(result).map_err(|e| McpErrorInternal::internal_error(e.to_string(), None))?;
+        Ok(CallToolResult::success(vec![content]))
+    }
+
+    // ============ Audio Capture Tools (previously missing from MCP) ============
+
+    #[tool(description = "Start audio capture (WAV). Optional host path to write to; empty means the emulator default.")]
+    async fn start_audio_capture(&self, Parameters(params): Parameters<AudioCaptureParams>) -> Result<CallToolResult, McpErrorInternal> {
+        let body = match params.path.as_ref() {
+            Some(p) if !p.is_empty() => json!({ "path": p }),
+            _ => json!({}),
+        };
+        let result: AudioCaptureResult = self.client.post("/capture/audio/start", &body).await.map_err(|e| to_mcp_error_ctx("/capture/audio/start", e))?;
+        let content = Content::json(result).map_err(|e| McpErrorInternal::internal_error(e.to_string(), None))?;
+        Ok(CallToolResult::success(vec![content]))
+    }
+
+    #[tool(description = "Stop audio capture")]
+    async fn stop_audio_capture(&self) -> Result<CallToolResult, McpErrorInternal> {
+        let result: AudioCaptureResult = self.client.post("/capture/audio/stop", &json!({})).await.map_err(|e| to_mcp_error_ctx("/capture/audio/stop", e))?;
+        let content = Content::json(result).map_err(|e| McpErrorInternal::internal_error(e.to_string(), None))?;
+        Ok(CallToolResult::success(vec![content]))
+    }
+
+    #[tool(description = "Get audio capture status")]
+    async fn get_audio_capture_status(&self) -> Result<CallToolResult, McpErrorInternal> {
+        let status: AudioCaptureStatus = self.client.get("/capture/audio/status").await.map_err(|e| to_mcp_error_ctx("/capture/audio/status", e))?;
+        let content = Content::json(status).map_err(|e| McpErrorInternal::internal_error(e.to_string(), None))?;
+        Ok(CallToolResult::success(vec![content]))
+    }
+
+    // ============ Mouse / Mount / Frame-analysis Tools (new) ============
+
+    #[tool(description = "Get the last injected mouse cursor position in API coordinates. Exact for injected moves; best-effort if the guest clamps/recentres the cursor.")]
+    async fn get_mouse_position(&self) -> Result<CallToolResult, McpErrorInternal> {
+        let pos: MousePosition = self.client.get("/input/mouse").await.map_err(|e| to_mcp_error_ctx("/input/mouse", e))?;
+        let content = Content::json(pos).map_err(|e| McpErrorInternal::internal_error(e.to_string(), None))?;
+        Ok(CallToolResult::success(vec![content]))
+    }
+
+    #[tool(description = "Mount a host directory as a DOS drive by typing MOUNT at the shell, then verify via read_screen_text. Returns the screen text after the command so callers can confirm success. Drive letter like \"C\" or \"D\".")]
+    async fn mount_drive(&self, Parameters(params): Parameters<MountDriveParams>) -> Result<CallToolResult, McpErrorInternal> {
+        let drive = params.drive.trim().to_ascii_uppercase();
+        if drive.len() != 1 || !drive.chars().next().map(|c| c.is_ascii_alphabetic()).unwrap_or(false) {
+            return Err(McpErrorInternal::invalid_params("drive must be a single letter, e.g. \"C\"", None));
+        }
+        let cmd_line = format!("MOUNT {} {}\n", drive, params.host_path);
+        let _typed: TypeTextResponse = self.post_input("/input/type", &json!({ "text": cmd_line, "cps": params.cps.unwrap_or(30.0) })).await?;
+        // Give the shell a moment and read the screen back for verification.
+        tokio::time::sleep(Duration::from_millis(500)).await;
+        let screen: ScreenText = self.client.get("/video/text").await.map_err(|e| to_mcp_error_ctx("/video/text", e))?;
+        let result = json!({
+            "drive": drive,
+            "host_path": params.host_path,
+            "screen_text": screen.text,
+            "is_text_mode": screen.is_text_mode,
+            "note": "check screen_text for the MOUNT result line; in graphics mode screen_text is empty",
+        });
+        let content = Content::json(result).map_err(|e| McpErrorInternal::internal_error(e.to_string(), None))?;
+        Ok(CallToolResult::success(vec![content]))
+    }
+
+    #[tool(description = "Analyse the current frame without returning pixels: black ratio, luma stats, and a stable hash so callers can detect change / implement the black-watch loop in one call. Works in graphics and text modes.")]
+    async fn analyze_frame(&self) -> Result<CallToolResult, McpErrorInternal> {
+        let path = "/video/frame?mode=raw&format=raw&quality=85";
+        let bytes = self.client.get_bytes(path).await.map_err(|e| to_mcp_error_ctx(path, e))?;
+        let analysis = analyze_raw_frame(&bytes).map_err(|e| McpErrorInternal::internal_error(e, None))?;
+        let content = Content::json(analysis).map_err(|e| McpErrorInternal::internal_error(e.to_string(), None))?;
+        Ok(CallToolResult::success(vec![content]))
+    }
 }
 
 // ============ Parameter Types ============
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct MixerVolumeParams {
+    /// Left volume (non-negative; 1.0 = unity)
+    pub left: f32,
+    /// Right volume (non-negative; 1.0 = unity)
+    pub right: f32,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct MixerChannelParams {
+    /// Channel name as returned by get_mixer_status
+    pub name: String,
+    /// Left volume (non-negative; 1.0 = unity)
+    pub left: f32,
+    /// Right volume (non-negative; 1.0 = unity)
+    pub right: f32,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct AudioCaptureParams {
+    /// Optional host path for the WAV file; omit for the emulator default
+    #[serde(default)]
+    pub path: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct MountDriveParams {
+    /// DOS drive letter, e.g. "C" or "D"
+    pub drive: String,
+    /// Host directory to mount, e.g. "/home/papa/games/doom"
+    pub host_path: String,
+    /// Typing speed in characters per second (default 30)
+    #[serde(default)]
+    pub cps: Option<f64>,
+}
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct SetCyclesParams {
@@ -521,12 +809,42 @@ pub struct ReadMemoryParams {
     pub save_path: Option<String>,
 }
 
+/// Bytes to write: either a base64 string or an array of byte values.
+/// The emulator wire format is base64; accepting both shapes keeps the
+/// tool usable from prompt-style JSON (where a string is natural) and
+/// from callers that already hold a byte array.
+#[derive(Debug, Clone, Deserialize, schemars::JsonSchema)]
+#[serde(untagged)]
+pub enum ByteData {
+    Base64(String),
+    Bytes(Vec<u8>),
+}
+
+impl ByteData {
+    fn to_bytes(&self) -> Result<Vec<u8>, String> {
+        match self {
+            ByteData::Bytes(b) => Ok(b.clone()),
+            ByteData::Base64(s) => base64::Engine::decode(
+                &base64::engine::general_purpose::STANDARD,
+                s,
+            )
+            .map_err(|e| format!("data is not valid base64: {e}")),
+        }
+    }
+}
+
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct WriteMemoryParams {
     /// Physical memory offset
     pub offset: u64,
-    /// Base64-encoded data to write
-    pub data: Vec<u8>,
+    /// Data to write: base64 string (e.g. "AQID") or byte array ([1,2,3])
+    pub data: ByteData,
+}
+
+impl WriteMemoryParams {
+    fn data_bytes(&self) -> Result<Vec<u8>, String> {
+        self.data.to_bytes()
+    }
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -732,7 +1050,7 @@ impl ServerHandler for DosBoxMcpServer {
             instructions: Some(
                 "MCP server for dosbox-automation REST API. Provides tools for controlling DOSBox instances including input injection, memory access, video capture, drive management, and Lua scripting.\n\n\
                 **Documentation Resources** (read via `resources/read`):\n\
-                - `docs://dosbox-mcp/api-reference` — Complete API reference for all 45 tools\n\
+                - `docs://dosbox-mcp/api-reference` — Complete API reference for all 55 tools\n\
                 - `docs://dosbox-mcp/configuration` — Server configuration guide\n\
                 - `docs://dosbox-mcp/workflows` — Common workflow examples (game install, memory trainer, testing)\n\
                 - `docs://dosbox-mcp/quickstart` — Quick start guide\n\n\

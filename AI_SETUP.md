@@ -85,7 +85,7 @@ cargo build --release
 
 ## 5. Configure Primary Config (Mount Policy)
 
-The mount policy **only reads** `mount_allowed_bases` and `mount_allowed_image_roots` from the primary config file at:
+There is no mount whitelist. The mount policy refuses system paths and symlinks to them, and non-directories; any other existing directory may be mounted. The primary config file at:
 ```
 ~/.config/dosbox-automation/dosbox-automation.conf
 ```
@@ -95,9 +95,6 @@ Create it:
 mkdir -p ~/.config/dosbox-automation
 cat > ~/.config/dosbox-automation/dosbox-automation.conf << 'EOF'
 [webserver]
-mount_allowed_bases = /path/to/your/project/root
-mount_allowed_image_roots = /path/to/your/project/root;/path/to/disk/images
-
 [cpu]
 cpu_cycles = 30000
 cpu_cycles_protected = 30000
@@ -180,7 +177,7 @@ ln -s /home/papa/dosbox-automation-is-not-your-nanny/build/release-linux/dosbox-
 
 ## 10. Verify Installation
 
-### MCP Tools Available (45 total)
+### MCP Tools Available (55 total)
 ```bash
 # List tools via MCP
 # Resources: docs://dosbox-mcp/api-reference
@@ -190,17 +187,20 @@ ln -s /home/papa/dosbox-automation-is-not-your-nanny/build/release-linux/dosbox-
 ### Key Drive Tools
 - `swap_disk` — Mount floppy/CD images
 - `lock_mounts` / `get_mount_lock` — Mount lock latch
-- `get_mount_allowed_bases` — Query allowed MOUNT bases
-- `get_mount_allowed_image_roots` — Query allowed image roots
+- `mount_drive` — Mount a host directory (types MOUNT, verifies via screen text)
+- `get_mixer_status` / `set_mixer_volume` / `mute_mixer` / `unmute_mixer` / `set_mixer_channel_volume` — Mixer control
+- `start_audio_capture` / `stop_audio_capture` / `get_audio_capture_status` — Audio capture
+- `get_mouse_position` — Last injected cursor position
+- `analyze_frame` — Frame black ratio / luma / hash (black-watch loop in one call)
 
 ### Quick Test
 ```json
 {
-  "tool": "get_mount_allowed_bases",
-  "arguments": {}
+  "tool": "mount_drive",
+  "arguments": { "drive": "D", "host_path": "/tmp" }
 }
 ```
-Should return your configured `mount_allowed_bases` paths.
+Should return the MOUNT result line in `screen_text`.
 
 ---
 
@@ -212,7 +212,7 @@ Should return your configured `mount_allowed_bases` paths.
 | `Connection refused` | Port 8386 is owned by another process, or boot is still in progress (`lsof -i :8386`) |
 | Black frames in graphics apps | Start Xvfb `:99`, set `display = ":99"` in `~/.config/dosbox-mcp/config.toml` |
 | 3DS slow start or black screen | Pin both rates: launcher sets `cpu_cycles_protected` alongside `cpu_cycles` (30000); unprotected pmode defaults to 60000 and slows DOS-extender apps |
-| MOUNT blocked | Check `mount_allowed_bases` in primary config; ensure `--secure-mode` is off |
+| MOUNT blocked | Path is a system path / symlink to one, or does not exist; ensure `--secure-mode` is off |
 | `libiir.so not found` | Launcher auto-detects libiir relative to the binary (following symlinks) and sets `LD_LIBRARY_PATH` for the child; only a system install with libs elsewhere needs manual handling |
 
 ---
@@ -254,7 +254,7 @@ cmake --preset release-linux -DOPT_FETCH_DEPS=ON && \
 cmake --build build/release-linux -- -j$(nproc) && \
 cd tools/dosbox-mcp && cargo build --release && \
 mkdir -p ~/.config/dosbox-automation && \
-echo -e "[webserver]\nmount_allowed_bases = $PWD/../..\nmount_allowed_image_roots = $PWD/../..\n[cpu]\ncpu_cycles = 30000\ncpu_cycles_protected = 30000" > ~/.config/dosbox-automation/dosbox-automation.conf && \
+echo -e "[cpu]\ncpu_cycles = 30000\ncpu_cycles_protected = 30000" > ~/.config/dosbox-automation/dosbox-automation.conf && \
 mkdir -p ~/.config/dosbox-mcp && \
 echo -e '[default]\nbase_url = "http://localhost:8386"\ndisplay = ":99"\ncpu_cycles = "30000"' > ~/.config/dosbox-mcp/config.toml
 ```

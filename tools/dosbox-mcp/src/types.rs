@@ -131,10 +131,19 @@ pub struct MemoryAllocateResponse {
     pub addr: u64,
 }
 
-/// Memory free response
+/// Memory free response. The emulator returns {"addr","success",...};
+/// older shapes returned an empty body, which is why this tool used to
+/// fail with "error decoding response body".
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct MemoryFreeResponse {
-    pub status: String,
+    #[serde(default)]
+    pub addr: Option<u64>,
+    #[serde(default)]
+    pub success: Option<bool>,
+    #[serde(default)]
+    pub status: Option<String>,
+    #[serde(default)]
+    pub error: Option<String>,
 }
 
 /// Freeze entry
@@ -270,6 +279,8 @@ pub struct DriveSwapResponse {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct MountLockResponse {
     pub status: String,
+    #[serde(default)]
+    pub locked: Option<bool>,
 }
 
 /// Mount lock status
@@ -354,9 +365,18 @@ pub struct McbBlock {
 }
 
 /// Control response
+/// Emulator shapes vary by endpoint: shutdown returns {"status": ...},
+/// pause returns {"paused": true, "note": ...}, resume returns
+/// {"paused": false}. Accept all with defaults so pause/resume do not
+/// fail JSON decoding after the action already applied.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct ControlResponse {
+    #[serde(default)]
     pub status: String,
+    #[serde(default)]
+    pub paused: Option<bool>,
+    #[serde(default)]
+    pub note: Option<String>,
 }
 
 /// Capture frame result
@@ -371,4 +391,100 @@ pub struct CaptureFrameResult {
     /// Absolute path of the written file when save_path was provided.
     #[serde(default)]
     pub saved_path: Option<String>,
+}
+
+/// Mixer status (GET /mixer)
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct MixerStatus {
+    pub master_volume: VolumePair,
+    pub muted: bool,
+    pub sample_rate: u32,
+    pub channels: Vec<MixerChannel>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct VolumePair {
+    pub left: f32,
+    pub right: f32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct MixerChannel {
+    pub name: String,
+    pub user_volume: VolumePair,
+    pub app_volume: VolumePair,
+    pub enabled: bool,
+    pub sample_rate: u32,
+}
+
+/// Mixer volume result (PUT /mixer/volume, POST mute/unmute, PUT channel)
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct MixerResult {
+    #[serde(default)]
+    pub left: Option<f32>,
+    #[serde(default)]
+    pub right: Option<f32>,
+    #[serde(default)]
+    pub muted: Option<bool>,
+    #[serde(default)]
+    pub channel: Option<String>,
+}
+
+/// Audio capture status (GET /capture/audio/status)
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct AudioCaptureStatus {
+    pub capturing: bool,
+}
+
+/// Audio capture start/stop result
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct AudioCaptureResult {
+    #[serde(default)]
+    pub status: String,
+    #[serde(default)]
+    pub path: Option<String>,
+}
+
+/// Last injected mouse position (GET /input/mouse)
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct MousePosition {
+    pub x: f32,
+    pub y: f32,
+    pub valid: bool,
+    #[serde(default)]
+    pub note: Option<String>,
+}
+
+/// Frame analysis: pixel statistics over a raw frame, computed in the
+/// MCP server so callers can do the black-watch loop without downloading
+/// a PNG and decoding it themselves.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct FrameAnalysis {
+    pub width: u32,
+    pub height: u32,
+    pub pixel_format: String,
+    pub black_ratio: f64,
+    pub mean_luma: f64,
+    pub min_luma: u8,
+    pub max_luma: u8,
+    pub hash: String,
+    pub all_black: bool,
+}
+
+/// Frame info, extended with the video-mode block the emulator returns.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct FrameInfoFull {
+    pub width: u32,
+    pub height: u32,
+    pub pixel_format: String,
+    pub pitch: i32,
+    pub is_paletted: bool,
+    #[serde(default)]
+    pub video_mode: Option<serde_json::Value>,
+    #[serde(default)]
+    pub rendered_double_scan: Option<bool>,
+    #[serde(default)]
+    pub double_width: Option<bool>,
+    #[serde(default)]
+    pub double_height: Option<bool>,
 }

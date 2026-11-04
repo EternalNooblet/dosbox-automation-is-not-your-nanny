@@ -18,7 +18,7 @@
 
 namespace Webserver {
 
-enum class RegClass { General, Segment, Unknown };
+enum class RegClass { General, Segment, Special, Unknown };
 
 struct RegisterRef {
 	RegClass reg_class = RegClass::Unknown;

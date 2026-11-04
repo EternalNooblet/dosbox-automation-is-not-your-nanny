@@ -82,6 +82,13 @@ void Lock()
 	mount_locked.store(true, std::memory_order_release);
 }
 
+// Unlock exists for automation: the webserver lock endpoint honours
+// {"locked":false}. Guest-side callers have no unlock path.
+void Unlock()
+{
+	mount_locked.store(false, std::memory_order_release);
+}
+
 bool IsLocked()
 {
 	return mount_locked.load(std::memory_order_acquire);

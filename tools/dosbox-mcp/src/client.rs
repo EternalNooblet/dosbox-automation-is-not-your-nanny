@@ -98,6 +98,19 @@ impl DosBoxClient {
         self.handle_response(response).await
     }
 
+    /// Execute a POST request with a raw text body (for Lua scripts,
+    /// which the emulator expects as text/plain).
+    pub async fn post_text<T: DeserializeOwned>(&self, path: &str, body: &str) -> Result<T> {
+        let url = self.url(path)?;
+        debug!("POST {} (text, {} bytes)", url, body.len());
+        let response = self.client.post(&url)
+            .header("Content-Type", "text/plain; charset=utf-8")
+            .header("Accept", "application/json")
+            .body(body.to_string())
+            .send().await?;
+        self.handle_response(response).await
+    }
+
     /// Execute a POST request that returns raw bytes (for frame capture)
     pub async fn post_bytes<B: serde::Serialize>(&self, path: &str, body: &B) -> Result<Vec<u8>> {
         let url = self.url(path)?;

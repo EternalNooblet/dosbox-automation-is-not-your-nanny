@@ -1,6 +1,6 @@
 # dosbox-mcp API Reference
 
-Complete reference for all 43 MCP tools exposed by the dosbox-mcp server.
+Complete reference for all 55 MCP tools exposed by the dosbox-mcp server.
 
 ## Tool Categories
 
@@ -10,12 +10,13 @@ Complete reference for all 43 MCP tools exposed by the dosbox-mcp server.
 | **Control** | `shutdown`, `pause`, `resume`, `get_pause_state` |
 | **CPU** | `get_registers`, `get_cycles`, `set_cycles`, `set_register` |
 | **Memory** | `read_memory`, `write_memory`, `search_memory`, `allocate_memory`, `free_memory`, `freeze_memory`, `list_freezes`, `clear_freezes` |
-| **Input** | `type_text`, `send_input_sequence` |
-| **Video** | `capture_frame`, `get_frame_info`, `read_screen_text` |
+| **Input** | `type_text`, `send_input_sequence`, `get_mouse_position` |
+| **Video** | `capture_frame`, `get_frame_info`, `read_screen_text`, `analyze_frame` |
 | **Recording** | `start_recording`, `pause_recording`, `stop_recording`, `get_recording_status` |
-| **Drive** | `swap_disk`, `lock_mounts`, `get_mount_lock`, `get_mount_allowed_bases`, `get_mount_allowed_image_roots` |
+| **Drive** | `swap_disk`, `lock_mounts`, `get_mount_lock`, `mount_drive` |
 | **Script** | `load_script`, `start_script`, `stop_script`, `get_script_status` |
-| **Capture** | `start_video_capture`, `stop_video_capture`, `get_capture_status`, `get_compression`, `set_compression` |
+| **Capture** | `start_video_capture`, `stop_video_capture`, `get_capture_status`, `get_compression`, `set_compression`, `start_audio_capture`, `stop_audio_capture`, `get_audio_capture_status` |
+| **Mixer** | `get_mixer_status`, `set_mixer_volume`, `mute_mixer`, `unmute_mixer`, `set_mixer_channel_volume` |
 | **I/O** | `read_port`, `write_port` |
 | **DOS** | `get_dos_internals` |
 
@@ -528,32 +529,19 @@ Get current mount lock state.
 
 ---
 
-### get_mount_allowed_bases
-Get allowed base directories for MOUNT (mount_allowed_bases from config).
+### mount_drive
+Mount a host directory as a DOS drive (types MOUNT at the shell, then verifies via `read_screen_text`).
 
-**Parameters:** None
+**Parameters:**
+- `drive` (string): DOS drive letter, e.g. `"C"` or `"D"`
+- `host_path` (string): Host directory to mount
+- `cps` (number, optional): Typing speed (default 30)
 
-**Returns:** `MountAllowedBasesResponse` with:
-- `allowed_bases` — Array of allowed base directory paths
-
-**Example:**
-```json
-{ "tool": "get_mount_allowed_bases", "arguments": {} }
-```
-
----
-
-### get_mount_allowed_image_roots
-Get allowed image roots for drive swap (mount_allowed_image_roots from config).
-
-**Parameters:** None
-
-**Returns:** `MountAllowedImageRootsResponse` with:
-- `allowed_image_roots` — Array of allowed image root directory paths
+**Returns:** drive, host_path, screen_text (check for the MOUNT result line), is_text_mode
 
 **Example:**
 ```json
-{ "tool": "get_mount_allowed_image_roots", "arguments": {} }
+{ "tool": "mount_drive", "arguments": { "drive": "D", "host_path": "/tmp" } }
 ```
 
 ---
@@ -743,6 +731,27 @@ Get DOS internals (MCB map, etc.).
 ```
 
 ---
+
+
+### get_mouse_position
+Get the last injected mouse cursor position in API coordinates.
+
+**Returns:** `x`, `y`, `valid`, `note`. Exact for injected moves; best-effort if the guest clamps or recentres the cursor (PS/2 has no position query).
+
+### analyze_frame
+Analyse the current frame (raw) without returning pixels: width, height, pixel format, black ratio, mean/min/max luma, FNV-1a hash, all_black. Use for the black-watch loop and change detection in graphics and text modes.
+
+### get_mixer_status / set_mixer_volume / mute_mixer / unmute_mixer / set_mixer_channel_volume
+Mixer control. Volume is left/right (1.0 = unity). Channel names come from `get_mixer_status`.
+
+### start_audio_capture / stop_audio_capture / get_audio_capture_status
+Audio (WAV) capture. `start_audio_capture` accepts an optional host `path`.
+
+### write_memory data shapes
+`data` accepts either a base64 string (`"AQID"`) or a byte array (`[1,2,3]`).
+
+### Key names in send_input_sequence
+Canonical `KBD_*` names (`KBD_enter`) and friendly aliases (`enter`, `esc`, `space`, `left`, single letters `a`-`z`, `0`-`9`, `f1`-`f12`) are accepted, case-insensitively, with or without the `KBD_` prefix.
 
 ## Error Handling
 

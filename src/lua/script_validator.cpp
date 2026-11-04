@@ -68,7 +68,8 @@ ValidationResult ScriptValidator::ValidateContentType(const std::string& content
 		               return static_cast<char>(std::tolower(c));
 	               });
 
-	if (media_type == "text/plain" || media_type == "application/lua") {
+	if (media_type == "text/plain" || media_type == "application/lua" ||
+	    media_type == "application/json") {
 		return {true, 0, {}};
 	}
 

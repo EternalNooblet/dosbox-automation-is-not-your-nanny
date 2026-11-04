@@ -15,6 +15,8 @@
 #include "cpu/registers.h"
 #include "utils/string_utils.h"
 
+#include <algorithm>
+#include <cctype>
 #include <unordered_map>
 
 using json = nlohmann::json;
@@ -64,6 +66,11 @@ RegisterRef RegisterKind(const std::string_view name)
 		int index;
 	};
 
+	// Case-insensitive: "EAX", "Eax" and "eax" are the same register.
+	auto lower = std::string(name);
+	std::transform(lower.begin(), lower.end(), lower.begin(),
+	               [](unsigned char c) { return std::tolower(c); });
+
 	static const std::unordered_map<std::string_view, Entry> lookup = {
 	        {"eax", {RegClass::General, 0}},
 	        {"ebx", {RegClass::General, 1}},
@@ -79,9 +86,12 @@ RegisterRef RegisterKind(const std::string_view name)
 	        { "ss", {RegClass::Segment, 3}},
 	        { "fs", {RegClass::Segment, 4}},
 	        { "gs", {RegClass::Segment, 5}},
+	        {"eip", {RegClass::Special, 0}},
+	        {"flags", {RegClass::Special, 1}},
+	        {"eflags", {RegClass::Special, 1}},
 	};
 
-	auto it = lookup.find(name);
+	auto it = lookup.find(lower);
 	if (it != lookup.end()) {
 		return {it->second.reg_class, it->second.index};
 	}
@@ -113,6 +123,12 @@ void WriteRegisterCommand::Execute()
 		        SegNames::gs,
 		};
 		CPU_SetSegGeneral(seg_names[ref.index], value);
+	} else if (ref.reg_class == RegClass::Special) {
+		if (ref.index == 0) {
+			reg_eip = value;
+		} else {
+			reg_flags = value;
+		}
 	} else {
 		error = "Unknown register: " + name;
 	}

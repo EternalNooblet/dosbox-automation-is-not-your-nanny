@@ -247,6 +247,9 @@ void AllocMemoryCommand::Post(const httplib::Request& req, httplib::Response& re
 		send_json(res, j);
 	} else {
 		res.status = httplib::StatusCode::ServiceUnavailable_503;
+		json err;
+		err["error"] = "memory allocation failed";
+		send_json(res, err);
 	}
 }
 
@@ -278,9 +281,14 @@ void FreeMemoryCommand::Post(const httplib::Request& req, httplib::Response& res
 	FreeMemoryCommand cmd(addr);
 	cmd.WaitForCompletion();
 
+	json result;
+	result["addr"]    = addr;
+	result["success"] = cmd.success;
 	if (!cmd.success) {
 		res.status = httplib::StatusCode::BadRequest_400;
+		result["error"] = "free failed (bad address or not allocated)";
 	}
+	send_json(res, result);
 }
 
 } // namespace Webserver

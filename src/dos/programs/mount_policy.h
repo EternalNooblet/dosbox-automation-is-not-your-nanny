@@ -121,9 +121,11 @@ DenyReason DenyReasonForArchiveError(ArchiveMount::Error error);
 bool IsDeviceNamespacePath(const std::string& path);
 #endif
 
-// One-way latch. Once locked, all mounts are refused: directory mounts,
-// image mounts (MOUNT/IMGMOUNT), and BOOT. Cannot be unlocked.
+// Mount latch. Once locked, all mounts are refused: directory mounts,
+// image mounts (MOUNT/IMGMOUNT), and BOOT. Unlock is available to the
+// webserver/automation endpoint only; guest-side callers cannot unlock.
 void Lock();
+void Unlock();
 bool IsLocked();
 
 // Whether anything other than a human at the keyboard can drive the guest.

@@ -100,6 +100,14 @@ struct RecordingHandlers {
 	static void GetStatus(const httplib::Request&, httplib::Response& res);
 };
 
+struct MousePositionHandlers {
+	// Last injected cursor position in API coordinates. This tracks what
+	// the API asked the guest to do, not a guest-side readback (PS/2 has
+	// no position query), so it is exact for injected moves and a
+	// best-effort estimate if the guest clamps or recentres the cursor.
+	static void Get(const httplib::Request&, httplib::Response& res);
+};
+
 void ReplayDispatchFrame(uint64_t current_frame);
 
 } // namespace Webserver
