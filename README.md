@@ -28,138 +28,20 @@ dosbox-automation
 
 ---
 
-## Fork deltas — how this fork differs from upstream dosbox-automation
+## Fork deltas — vs upstream dosbox-automation (`b9f24198a`)
 
-This repository is a fork of [dosbox-automation](https://github.com/dosbox-automation/dosbox-automation)
-at upstream commit `b9f24198a` (0.85.1 era, 2026-10-28). Everything below is **not** in upstream;
-core emulation (CPU, DOS, video, audio, archive mounts, TrueType text, Cheat Workbench) is unchanged
-from that upstream point. All deltas are in the webserver/API layer, the mount policy, mouse
-injection, and the new `tools/dosbox-mcp` MCP server. Commits: `962bfcf97` … `f42c2ec43`.
-
-### 1. `tools/dosbox-mcp` — new MCP server (entirely new, ~9,100 lines)
-
-A Rust MCP server (stdio transport) that auto-starts dosbox-automation with the webserver on,
-pins CPU cycles, and exposes **55 tools**:
-
-- Status/control: `get_status`, `get_program_state`, `get_dosbox_info`, `shutdown`, `pause`, `resume`, `get_pause_state`
-- CPU: `get_registers`, `get_cycles`, `set_cycles`, `set_register`
-- Memory: `read_memory`, `write_memory`, `search_memory`, `get_page_map`, `allocate_memory`, `free_memory`, `freeze_memory`, `list_freezes`, `clear_freezes`
-- Input: `type_text`, `send_input_sequence`, `get_mouse_position`
-- Video: `capture_frame`, `get_frame_info`, `read_screen_text`, `analyze_frame` (black ratio / luma / hash in one call, works in graphics mode)
-- Recording: `start_recording`, `pause_recording`, `stop_recording`, `get_recording_status`
-- Drive: `swap_disk`, `lock_mounts`, `get_mount_lock`, `mount_drive` (types MOUNT and verifies via screen text)
-- Script: `load_script`, `start_script`, `stop_script`, `get_script_status`
-- Capture: `start_video_capture`, `stop_video_capture`, `get_capture_status`, `get_compression`, `set_compression`, `start_audio_capture`, `stop_audio_capture`, `get_audio_capture_status`
-- Mixer: `get_mixer_status`, `set_mixer_volume`, `mute_mixer`, `unmute_mixer`, `set_mixer_channel_volume`
-- I/O: `read_port`, `write_port` — DOS: `get_dos_internals`
-
-Also: 4 embedded doc resources (`docs://dosbox-mcp/api-reference`, `configuration`, `workflows`, `quickstart`),
-a `docs://dosbox-mcp/tool/{name}` resource template, 4 prompts (`install-game`, `memory-trainer`,
-`automated-test`, `lua-script`), config via `~/.config/dosbox-mcp/config.toml` / env / CLI
-(`cpu_cycles`, `display`, `secure_mode`), logs on stderr (stdout is the JSON-RPC transport),
-and `AI_SETUP.md` for from-scratch CachyOS/Arch setup. See [tools/dosbox-mcp/README.md](tools/dosbox-mcp/README.md).
-
-### 2. Webserver: token-free, no host validation, bound to 0.0.0.0
-
-Upstream requires a bearer token (generated file, `Authorization: Bearer …`) and validates the
-Host header. This fork removes both: the API is token-free, any Host is accepted, and the
-launcher binds `0.0.0.0` with `webserver_allow_remote=on` and `webserver_token_file=off`.
-The server also closes each connection after its answer (`set_keep_alive_max_count(1)`) so pooled
-clients don't reuse a dead socket. The Security section below describes upstream; in this fork
-the effective policy is: loopback tool pages still announce themselves, payload cap (10 MB) kept,
-system-path mount policy kept (see §7).
-
-### 3. Pause / resume API (new endpoints)
-
-`POST /api/v1/control/pause`, `POST /api/v1/control/resume`, `GET /api/v1/control/paused`.
-Pause freezes the guest at an instruction boundary (no CPU decode, no ticks) while the bridge
-keeps pumping the API queue, so memory/freeze commands answer while paused.
-`src/dosbox.cpp` now drains the bridge on every loop pass (not only on PIC events), and
-`WaitForCompletion` timeout went 250 ms → 1000 ms.
-
-### 4. Memory API hardening + guest-linear reads
-
-- Page guard: `read_memory`/`write_memory`/`search_memory` refuse any range covering a page
-  whose handler is not plain host RAM/ROM (`MEM_PageReadable`/`MEM_PageWritable`), returning a
-  fast 400 instead of faulting into an illegal-page handler mid-scan and aborting the engine.
-- Dispatch-free host copies: `MEM_BlockReadHost`, `MEM_PageReadHostPt`, `MEM_PhysicalReadHost`
-  copy straight from host page backing after re-checking handler identity. API reads never
-  dispatch handler logic or initialise the TLB — that used to kill the webserver connection
-  on a running VCPI guest.
-- Guest-linear addressing: offset bit 31 (`addr + 0x80000000`) translates through the guest's
-  active page directory via raw CR3 walk (`PAGING_TranslateLinearRead` in `src/cpu/paging.cpp`);
-  unmapped linear addresses fail fast with 400.
-- New endpoint `GET /api/v1/memory/pagemap` (`PageMapCommand`): per-page readable/writable
-  flags; the MCP server adds coalesced `readable_ranges`/`writable_ranges` (raw flags are
-  `0x01`/`0x00`, not `'1'`/`0'` — `flag_ranges()` handles both).
-- Bounded command bridge (`src/webserver/bridge.cpp`): a stalled emulator thread now surfaces
-  `500 "Command bridge stalled"` instead of hanging the whole API.
-- `free_memory`/`allocate_memory` now return JSON (`{"addr","success"}`) instead of an empty
-  body (which made MCP fail with "error decoding response body").
-
-### 5. Input: burst serialization, key aliases, mouse injection + position
-
-- MCP serializes input bursts and retries 409 "Replay already in progress" (up to ~30 s)
-  instead of failing; `is_booted` is normalized from `is_shell`.
-- Key aliases in `send_input_sequence`: canonical `KBD_*` names plus friendly aliases
-  (`enter`, `esc`, `space`, `left`, `a-z`, `0-9`, `f1-f12`), case-insensitive, with or without
-  the `KBD_` prefix; unknown keys now error with the accepted forms listed.
-- Mouse API injection (`MOUSE_InjectMoved/Warp/Button/Wheel` in `src/hardware/input/mouse.cpp`)
-  bypasses capture/focus/drop guards and reaches all `IsUsingEvents()` interfaces (DOS driver,
-  PS/2, serial, ManyMouse). Warp is implemented as a tracked-position delta plus `InjectWarp`,
-  so PS/2/serial (whose `InjectWarp` is a no-op) still move.
-- New endpoint `GET /api/v1/input/mouse`: last injected cursor position in API coordinates.
-- DOS-driver relative-mode fix (`mouseif_dos_driver.cpp`): injection forces relative mode so
-  repeated relative moves aren't dropped when the dummy absolute position doesn't change.
-
-### 6. CPU registers: eip/flags writable, case-insensitive
-
-`set_register` now accepts `eip` and `flags`/`eflags` (previously "Unknown register", despite
-docs promising eip) and register names are case-insensitive (`EAX` works).
-The MCP launcher pins **both** `cpu_cycles` and `cpu_cycles_protected` to 30000 (DOS extenders
-otherwise silently take the hardcoded 60000 protected-mode rate and run slow), and
-`set_cycles` sends the integer the API accepts.
-
-### 7. Mount policy: whitelist removed, unlock added
-
-Upstream enforces a `mount_allowed_bases` / `mount_allowed_image_roots` whitelist.
-This fork removes the whitelist entirely: any existing directory may be mounted (system paths,
-symlinks to system paths, nonexistent paths and non-directories are still refused).
-`ParsePolicyConfig`/`AllowedBases`/`AllowedImageRoots` are no-ops kept for API compatibility;
-the config settings and the `/mount/allowed-*` endpoints no longer exist.
-`POST /api/v1/mount/lock` now honours `{"locked": false}` via `MountPolicy::Unlock()`
-(automation endpoint only; guest-side callers cannot unlock). The temporary
-`get_mount_allowed_bases`/`get_mount_allowed_image_roots` MCP tools were added and then removed.
-
-### 8. Lua script load: JSON accepted
-
-`POST /api/v1/script/load` rejects `application/json` with 415 upstream. The validator now
-accepts `application/json`, and the handler unwraps a JSON string or `{"script": "…"}` to the
-raw source; the MCP server additionally sends `text/plain` via `client::post_text`.
-
-### 9. Headless / agent launcher
-
-`tools/dosbox-mcp/src/dosbox_launcher.rs`: finds the build binary in repo-relative
-`./build/release-linux/` (not a machine-specific path), resolves the symlinked
-`~/.local/bin/dosbox-automation`, auto-detects `libiir.so` from the resolved binary path and
-sets `LD_LIBRARY_PATH` for the child, uses offscreen SDL + dummy audio when no display is set,
-keeps autoexec and kills the child without awaiting on stop, MT32EMU defaults off, and
-attaches to an already-running instance instead of starting a second one.
-
-### 10. Docs and tests
-
-- `AI_SETUP.md` (new): from-scratch install/configure/build for CachyOS/Arch (SDL3, not SDL2).
-- `tools/dosbox-mcp/docs/{api-reference,configuration,workflows,quickstart}.md`, `tools/dosbox-mcp/README.md`.
-- `tests/integration/test_api_contract.py`: host test accepts any Host (was loopback-only).
-- `CMakeLists.txt`: MT32EMU default off for headless runs.
-
-### What is intentionally not changed
-
-CPU/DOS/video/audio emulation, archive mounts, TrueType text output, Cheat Workbench,
-Lua engine semantics, and the upstream security model for guest mounts (system-path denylist,
-symlink checks) are as upstream at `b9f24198a`. Known pre-existing test failures in
-`dosbox_tests` (archive-helper and stale mount-policy parse tests) are upstream/fork leftovers
-and are not addressed by these deltas.
+- `tools/dosbox-mcp`: new 55-tool Rust MCP server (auto-starts the emulator, pins cycles).
+- Webserver: token-free, no Host validation, bound to `0.0.0.0`, closes connections after each answer.
+- Pause/resume API at an instruction boundary; bridge drains every loop pass.
+- Memory API: page-guarded, dispatch-free host reads, guest-linear (bit-31) CR3 walk, `pagemap` endpoint.
+- Input: burst-serialized with 409 retry, key aliases (`enter`, `esc`, …), `MOUSE_Inject*` + warp-as-delta.
+- New endpoint `GET /input/mouse`: last injected cursor position.
+- Registers: `eip`/`flags` writable, case-insensitive; cycles pinned for real+protected mode.
+- Mount policy: whitelist removed (any existing dir mounts, system paths still refused); mount lock unlockable.
+- Lua script load accepts JSON; `free_memory`/`allocate_memory` return JSON instead of an empty body.
+- Headless launcher: repo-relative binary search, auto `libiir.so`, offscreen SDL, MT32EMU off, attaches to running instance.
+- Docs: `AI_SETUP.md` (CachyOS/Arch) and `tools/dosbox-mcp/docs/`.
+- Core emulation unchanged from upstream.
 
 ## Getting started
 
@@ -390,7 +272,7 @@ Recorded and scripted with the included reference harness, driving the emulator 
 
 ## Security
 
-Upstream treats the HTTP server as an attack surface with bearer-token auth on every endpoint, host header validation, and mount restrictions. **This fork removes the bearer-token and host-header checks** (see [Fork deltas §2](#fork-deltas--how-this-fork-differs-from-upstream-dosbox-automation)): the API is token-free and bound to `0.0.0.0`, so anyone who can reach port 8386 can drive the emulator, read/write guest memory, and mount host directories (subject to the system-path denylist). Run it only on trusted networks/machines. The upstream [security policy](https://www.dosbox-automation.org/0.85.1/automation/security/) still describes the guest mount restrictions, which this fork keeps.
+Upstream uses bearer-token auth + Host validation; this fork removes both (token-free, `0.0.0.0`) — run only on trusted networks. Guest mount restrictions (system-path denylist) are kept.
 
 Security reports go to the contact address in the policy. Everything else goes on the [issue tracker](https://github.com/dosbox-automation/dosbox-automation/issues) (upstream) or this fork's repository.
 
