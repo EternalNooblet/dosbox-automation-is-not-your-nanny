@@ -25,10 +25,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             cmake ninja-build pkg-config \
-            libsdl2-dev libsdl2-net-dev libsdl2-sound-dev \
+            libsdl2-dev libsdl2-net-dev libsdl2-mixer-dev \
             libopus-dev libfluidsynth-dev libpng-dev \
-            libbz2-dev \
-            libvcpkg-dev || true
+            libbz2-dev
 
       - name: Build dosbox-mcp (Rust)
         run: |
