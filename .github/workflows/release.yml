@@ -98,14 +98,14 @@ jobs:
         run: |
           cmake --preset release-windows
           cmake --build --preset release-windows --config Release
-          Copy-Item build/release-windows/Release/dosbox-automation.exe ../dosbox-automation-windows-x86_64.exe
+          Copy-Item build/release-windows/Release/dosbox-automation.exe dosbox-automation-windows-x86_64.exe
 
       - name: Verify Windows build outputs
         shell: pwsh
         run: |
-          if (-not (Test-Path ../dosbox-automation-windows-x86_64.exe)) { throw "dosbox-automation.exe missing" }
-          if (-not (Test-Path ../../dosbox-mcp-windows-x86_64.exe)) { throw "dosbox-mcp.exe missing" }
-          Get-ChildItem ../dosbox-automation-windows-x86_64.exe, ../../dosbox-mcp-windows-x86_64.exe | Select-Object Name,Length
+          if (-not (Test-Path dosbox-automation-windows-x86_64.exe)) { throw "dosbox-automation.exe missing" }
+          if (-not (Test-Path dosbox-mcp-windows-x86_64.exe)) { throw "dosbox-mcp.exe missing" }
+          Get-ChildItem dosbox-automation-windows-x86_64.exe, dosbox-mcp-windows-x86_64.exe | Select-Object Name,Length
           Get-ChildItem -Recurse build/release-windows/_deps/iir1-build -ErrorAction SilentlyContinue | Select-Object FullName,Length
           Get-ChildItem build/release-windows/Release/Resources -ErrorAction SilentlyContinue | Select-Object -First 5 Name
 
@@ -113,8 +113,8 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path dosbox-full-auto-windows-x86_64/_deps/iir1-build | Out-Null
-          Copy-Item ../../dosbox-mcp-windows-x86_64.exe dosbox-full-auto-windows-x86_64/dosbox-mcp.exe
-          Copy-Item ../dosbox-automation-windows-x86_64.exe dosbox-full-auto-windows-x86_64/dosbox-automation.exe
+          Copy-Item dosbox-mcp-windows-x86_64.exe dosbox-full-auto-windows-x86_64/dosbox-mcp.exe
+          Copy-Item dosbox-automation-windows-x86_64.exe dosbox-full-auto-windows-x86_64/dosbox-automation.exe
           Copy-Item -Recurse build/release-windows/Release/Resources dosbox-full-auto-windows-x86_64/Resources
           $iirDlls = Get-ChildItem -Recurse build/release-windows/_deps/iir1-build -Filter *.dll -ErrorAction SilentlyContinue
           if ($iirDlls) { $iirDlls | Copy-Item -Destination dosbox-full-auto-windows-x86_64/_deps/iir1-build/ }
