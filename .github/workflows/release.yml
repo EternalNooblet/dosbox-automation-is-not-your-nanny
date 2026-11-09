@@ -53,119 +53,119 @@ jobs:
             dosbox-mcp-linux-x86_64
             dosbox-automation-linux-x86_64
 
-  build-windows:
-    name: Windows x86_64
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Install vcpkg
-        run: |
-          git clone https://github.com/microsoft/vcpkg.git C:/vcpkg
-          C:/vcpkg/bootstrap-vcpkg.bat
-          echo "VCPKG_ROOT=C:/vcpkg" >> $env:GITHUB_ENV
-
-      - name: Build dosbox-mcp (Rust)
-        run: |
-          cd tools/dosbox-mcp
-          cargo build --release
-          cp target/release/dosbox-mcp.exe ../../dosbox-mcp-windows-x86_64.exe
-
-      - name: Build dosbox-automation (CMake)
-        shell: pwsh
-        run: |
-          cmake --preset release-windows
-          cmake --build --preset release-windows --config Release
-          cp build/release-windows/Release/dosbox-automation.exe ../dosbox-automation-windows-x86_64.exe
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-x86_64
-          path: |
-            dosbox-mcp-windows-x86_64.exe
-            dosbox-automation-windows-x86_64.exe
-
-  build-macos-x86_64:
-    name: macOS x86_64
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Install dependencies
-        run: |
-          brew install cmake ninja pkg-config sdl2 sdl2_net opus fluidsynth libpng libarchive vcpkg || true
-
-      - name: Build dosbox-mcp (Rust)
-        run: |
-          cd tools/dosbox-mcp
-          cargo build --release
-          cp target/release/dosbox-mcp ../../dosbox-mcp-macos-x86_64
-
-      - name: Build dosbox-automation (CMake)
-        run: |
-          cmake --preset release-macos-homebrew -DOPT_FETCH_DEPS=ON
-          cmake --build --preset release-macos-homebrew
-          cp build/release-macos-homebrew/dosbox-automation ../dosbox-automation-macos-x86_64
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: macos-x86_64
-          path: |
-            dosbox-mcp-macos-x86_64
-            dosbox-automation-macos-x86_64
-
-  build-macos-arm64:
-    name: macOS arm64
-    runs-on: macos-14
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - name: Install Rust (arm64)
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          target: aarch64-apple-darwin
-
-      - name: Install dependencies
-        run: |
-          brew install cmake ninja pkg-config sdl2 sdl2_net opus fluidsynth libpng libarchive vcpkg || true
-
-      - name: Build dosbox-mcp (Rust)
-        run: |
-          cd tools/dosbox-mcp
-          cargo build --release --target aarch64-apple-darwin
-          cp target/aarch64-apple-darwin/release/dosbox-mcp ../../dosbox-mcp-macos-arm64
-
-      - name: Build dosbox-automation (CMake)
-        run: |
-          cmake --preset release-macos-homebrew -DOPT_FETCH_DEPS=ON
-          cmake --build --preset release-macos-homebrew
-          cp build/release-macos-homebrew/dosbox-automation ../dosbox-automation-macos-arm64
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: macos-arm64
-          path: |
-            dosbox-mcp-macos-arm64
-            dosbox-automation-macos-arm64
+  # build-windows:
+  #   name: Windows x86_64
+  #   runs-on: windows-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #       with:
+  #         submodules: recursive
+  #
+  #     - name: Install Rust
+  #       uses: dtolnay/rust-toolchain@stable
+  #
+  #     - name: Install vcpkg
+  #       run: |
+  #         git clone https://github.com/microsoft/vcpkg.git C:/vcpkg
+  #         C:/vcpkg/bootstrap-vcpkg.bat
+  #         echo "VCPKG_ROOT=C:/vcpkg" >> $env:GITHUB_ENV
+  #
+  #     - name: Build dosbox-mcp (Rust)
+  #       run: |
+  #         cd tools/dosbox-mcp
+  #         cargo build --release
+  #         cp target/release/dosbox-mcp.exe ../../dosbox-mcp-windows-x86_64.exe
+  #
+  #     - name: Build dosbox-automation (CMake)
+  #       shell: pwsh
+  #       run: |
+  #         cmake --preset release-windows
+  #         cmake --build --preset release-windows --config Release
+  #         cp build/release-windows/Release/dosbox-automation.exe ../dosbox-automation-windows-x86_64.exe
+  #
+  #     - name: Upload artifacts
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: windows-x86_64
+  #         path: |
+  #           dosbox-mcp-windows-x86_64.exe
+  #           dosbox-automation-windows-x86_64.exe
+  #
+  # build-macos-x86_64:
+  #   name: macOS x86_64
+  #   runs-on: macos-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #       with:
+  #         submodules: recursive
+  #
+  #     - name: Install Rust
+  #       uses: dtolnay/rust-toolchain@stable
+  #
+  #     - name: Install dependencies
+  #       run: |
+  #         brew install cmake ninja pkg-config sdl2 sdl2_net opus fluidsynth libpng libarchive vcpkg || true
+  #
+  #     - name: Build dosbox-mcp (Rust)
+  #       run: |
+  #         cd tools/dosbox-mcp
+  #         cargo build --release
+  #         cp target/release/dosbox-mcp ../../dosbox-mcp-macos-x86_64
+  #
+  #     - name: Build dosbox-automation (CMake)
+  #       run: |
+  #         cmake --preset release-macos-homebrew -DOPT_FETCH_DEPS=ON
+  #         cmake --build --preset release-macos-homebrew
+  #         cp build/release-macos-homebrew/dosbox-automation ../dosbox-automation-macos-x86_64
+  #
+  #     - name: Upload artifacts
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: macos-x86_64
+  #         path: |
+  #           dosbox-mcp-macos-x86_64
+  #           dosbox-automation-macos-x86_64
+  #
+  # build-macos-arm64:
+  #   name: macOS arm64
+  #   runs-on: macos-14
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #       with:
+  #         submodules: recursive
+  #
+  #     - name: Install Rust (arm64)
+  #       uses: dtolnay/rust-toolchain@stable
+  #       with:
+  #         target: aarch64-apple-darwin
+  #
+  #     - name: Install dependencies
+  #       run: |
+  #         brew install cmake ninja pkg-config sdl2 sdl2_net opus fluidsynth libpng libarchive vcpkg || true
+  #
+  #     - name: Build dosbox-mcp (Rust)
+  #       run: |
+  #         cd tools/dosbox-mcp
+  #         cargo build --release --target aarch64-apple-darwin
+  #         cp target/aarch64-apple-darwin/release/dosbox-mcp ../../dosbox-mcp-macos-arm64
+  #
+  #     - name: Build dosbox-automation (CMake)
+  #       run: |
+  #         cmake --preset release-macos-homebrew -DOPT_FETCH_DEPS=ON
+  #         cmake --build --preset release-macos-homebrew
+  #         cp build/release-macos-homebrew/dosbox-automation ../dosbox-automation-macos-arm64
+  #
+  #     - name: Upload artifacts
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: macos-arm64
+  #         path: |
+  #           dosbox-mcp-macos-arm64
+  #           dosbox-automation-macos-arm64
 
   release:
     name: Create GitHub Release
-    needs: [build-linux, build-windows, build-macos-x86_64, build-macos-arm64]
+    needs: [build-linux]
     runs-on: ubuntu-latest
     steps:
       - name: Download all artifacts
@@ -182,12 +182,6 @@ jobs:
           files: |
             artifacts/linux-x86_64/dosbox-mcp-linux-x86_64
             artifacts/linux-x86_64/dosbox-automation-linux-x86_64
-            artifacts/windows-x86_64/dosbox-mcp-windows-x86_64.exe
-            artifacts/windows-x86_64/dosbox-automation-windows-x86_64.exe
-            artifacts/macos-x86_64/dosbox-mcp-macos-x86_64
-            artifacts/macos-x86_64/dosbox-automation-macos-x86_64
-            artifacts/macos-arm64/dosbox-mcp-macos-arm64
-            artifacts/macos-arm64/dosbox-automation-macos-arm64
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
