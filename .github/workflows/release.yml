@@ -38,21 +38,29 @@ jobs:
         run: |
           cd tools/dosbox-mcp
           cargo build --release
-          cp target/release/dosbox-mcp ../../dosbox-mcp-linux-x86_64
 
       - name: Build dosbox-automation (CMake)
         run: |
           cmake --preset release-linux -DOPT_FETCH_DEPS=ON
           cmake --build --preset release-linux
-          cp build/release-linux/dosbox-automation dosbox-automation-linux-x86_64
+
+      - name: Stage self-contained bundle
+        run: |
+          mkdir -p dosbox-full-auto-linux-x86_64/_deps/iir1-build
+          cp tools/dosbox-mcp/target/release/dosbox-mcp dosbox-full-auto-linux-x86_64/dosbox-mcp
+          cp build/release-linux/dosbox-automation dosbox-full-auto-linux-x86_64/dosbox-automation
+          cp -a build/release-linux/resources dosbox-full-auto-linux-x86_64/resources
+          cp -a build/release-linux/_deps/iir1-build/libiir.so* dosbox-full-auto-linux-x86_64/_deps/iir1-build/
+          tar -czf dosbox-full-auto-linux-x86_64.tar.gz dosbox-full-auto-linux-x86_64
+          echo "--- bundle contents ---"
+          ls -la dosbox-full-auto-linux-x86_64/ dosbox-full-auto-linux-x86_64/_deps/iir1-build/
+          tar -tzf dosbox-full-auto-linux-x86_64.tar.gz | head -20
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: linux-x86_64
-          path: |
-            dosbox-mcp-linux-x86_64
-            dosbox-automation-linux-x86_64
+          path: dosbox-full-auto-linux-x86_64.tar.gz
 
   build-windows:
     name: Windows x86_64
@@ -184,8 +192,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            artifacts/linux-x86_64/dosbox-mcp-linux-x86_64
-            artifacts/linux-x86_64/dosbox-automation-linux-x86_64
+            artifacts/linux-x86_64/dosbox-full-auto-linux-x86_64.tar.gz
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
