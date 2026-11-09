@@ -27,6 +27,7 @@ jobs:
             cmake ninja-build pkg-config \
             libsdl2-dev libsdl2-net-dev libsdl2-sound-dev \
             libopus-dev libfluidsynth-dev libpng-dev \
+            libbz2-dev \
             libvcpkg-dev || true
 
       - name: Build dosbox-mcp (Rust)
