@@ -44,7 +44,7 @@ jobs:
         run: |
           cmake --preset release-linux -DOPT_FETCH_DEPS=ON
           cmake --build --preset release-linux
-          cp build/release-linux/dosbox-automation ../dosbox-automation-linux-x86_64
+          cp build/release-linux/dosbox-automation dosbox-automation-linux-x86_64
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
