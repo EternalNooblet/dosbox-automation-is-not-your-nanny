@@ -14,10 +14,11 @@ Source skills stay installed; this is the single entry point the plugin ships.
 - `/dosbox-full-auto install` — download the release bundle, register the MCP server.
 - CLI: `hermes dosbox-full-auto status|install|reinstall`.
 
-The release ships a self-contained tarball (binaries + `resources/` +
-`_deps/iir1-build/libiir.so*`). Loose binaries abort (`libiir.so.1` missing,
-then RENDER fallback-shader abort) — never use them without assets.
-Bundle lives at `<plugin-data>/bin/linux-x86_64/dosbox-full-auto-linux-x86_64/`.
+The release ships a self-contained tarball per platform (binaries + `resources/` +
+`_deps/iir1-build/libiir.so*` on Linux, DLLs on Windows). Loose binaries abort
+(`libiir.so.1` missing, then RENDER fallback-shader abort) — never use them
+without assets.
+Bundle lives at `<plugin-data>/bin/<arch>/dosbox-full-auto-<platform>/`.
 
 MCP config shape (tested, only via `hermes mcp add` — never hand-edit):
 

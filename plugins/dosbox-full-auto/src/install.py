@@ -27,22 +27,39 @@ from pathlib import Path
 
 PLUGIN_NAME = "dosbox-full-auto"
 GITHUB_REPO = "EternalNooblet/dosbox-automation-is-not-your-nanny"
-ASSET_NAME = "dosbox-full-auto-linux-x86_64.tar.gz"
-BUNDLE_TOPDIR = "dosbox-full-auto-linux-x86_64"
 BASE_URL = "http://localhost:8387"
 CPU_CYCLES = 30000
 VLLM_BASE = "https://decision.vllm-sr.ai"
 VLLM_COOLDOWN_S = 24 * 3600
 VERSION_FILE = "VERSION"
 
+# Platform-specific asset names and bundle top-level dirs
+def _asset_name() -> str:
+    import sys
+    if sys.platform.startswith("win"):
+        return "dosbox-full-auto-windows-x86_64.tar.gz"
+    return "dosbox-full-auto-linux-x86_64.tar.gz"
+
+def _bundle_topdir() -> str:
+    import sys
+    if sys.platform.startswith("win"):
+        return "dosbox-full-auto-windows-x86_64"
+    return "dosbox-full-auto-linux-x86_64"
+
 # Hermes catalog rule 17: a binary fetched at setup time must come from the
 # upstream tool's official source, pinned by checksum, and disclosed (rule 13).
 # These digests are GitHub's published asset digests (sha256) for each release
 # tag. install() only installs a pinned tag and verifies the download against
 # this table BEFORE extracting — an unpinned tag is refused, never fetched.
-DEFAULT_TAG = "v1.0.1"
+DEFAULT_TAG = "v1.0.2"
 PINNED_DIGESTS = {
-    "v1.0.1": "0cd20f89dc8c20354589c5cc339a35eb6d0de6efb685983173ece131808b32a2",
+    "v1.0.2": {
+        "linux": "3d7ade5d836a1e12e4c399a8b7d5065fead0620a4104bdf688a8c580004f8d47",
+        "windows": "d8de307043ab4a10044d1deecb0a70eca8f515f848869f4ad4509900f24a7f86",
+    },
+    "v1.0.1": {
+        "linux": "0cd20f89dc8c20354589c5cc339a35eb6d0de6efb685983173ece131808b32a2",
+    },
 }
 
 
@@ -68,7 +85,9 @@ def data_root() -> Path:
 
 
 def bundle_dir() -> Path:
-    return data_root() / "bin" / "linux-x86_64" / BUNDLE_TOPDIR
+    import sys
+    arch = "windows-x86_64" if sys.platform.startswith("win") else "linux-x86_64"
+    return data_root() / "bin" / arch / _bundle_topdir()
 
 
 def _db():
@@ -117,8 +136,9 @@ def _download(url: str, dest: Path, timeout: float = 300.0) -> None:
 
 
 def _find_asset(release: dict) -> dict | None:
+    target = _asset_name()
     for asset in release.get("assets", []) or []:
-        if asset.get("name") == ASSET_NAME:
+        if asset.get("name") == target:
             return asset
     return None
 
@@ -137,9 +157,12 @@ def _file_sha256(path: Path) -> str:
 
 def _verify_bundle(root: Path) -> list[str]:
     """Missing-piece list; empty = usable bundle. Loose binaries are not usable."""
+    import sys
     missing = []
     for name in ("dosbox-mcp", "dosbox-automation"):
         p = root / name
+        if sys.platform.startswith("win"):
+            p = p.with_suffix(".exe")
         if not p.is_file():
             missing.append(f"binaries: {name} missing")
         elif not os.access(p, os.X_OK):
@@ -147,8 +170,14 @@ def _verify_bundle(root: Path) -> list[str]:
     if not (root / "resources").is_dir():
         missing.append("resources/ missing (shaders/mapping/fonts/webserver)")
     iir = root / "_deps" / "iir1-build"
-    if not iir.is_dir() or not list(iir.glob("libiir.so*")):
-        missing.append("_deps/iir1-build/libiir.so missing")
+    if sys.platform.startswith("win"):
+        # Windows: look for iir DLLs
+        if not iir.is_dir() or not list(iir.glob("*.dll")):
+            missing.append("_deps/iir1-build/iir DLLs missing")
+    else:
+        # Linux: look for libiir.so*
+        if not iir.is_dir() or not list(iir.glob("libiir.so*")):
+            missing.append("_deps/iir1-build/libiir.so missing")
     return missing
 
 
@@ -157,10 +186,13 @@ def install(tag: str | None = None, reinstall: bool = False) -> str:
     server. Only tags in PINNED_DIGESTS install (checksum pin, rule 17);
     anything else is refused. Returns a human-readable result; never raises."""
     tag = tag or DEFAULT_TAG
-    expected = PINNED_DIGESTS.get(tag)
+    import sys
+    platform_key = "windows" if sys.platform.startswith("win") else "linux"
+    expected = PINNED_DIGESTS.get(tag, {}).get(platform_key)
     if not expected:
-        return (f"install refused — release {tag} is not checksum-pinned "
-                f"(rule 17). Pinned tags: {', '.join(sorted(PINNED_DIGESTS))}. "
+        pinned = ", ".join(f"{t} ({', '.join(PINNED_DIGESTS[t].keys())})" for t in sorted(PINNED_DIGESTS))
+        return (f"install refused — release {tag} is not checksum-pinned for {platform_key} "
+                f"(rule 17). Pinned: {pinned}. "
                 "Add its published SHA256 to PINNED_DIGESTS in src/install.py first.")
     rel = latest_release(tag)
     if not rel["ok"]:
@@ -168,7 +200,7 @@ def install(tag: str | None = None, reinstall: bool = False) -> str:
     release = rel["release"]
     asset = _find_asset(release)
     if asset is None:
-        return f"install failed — release {release.get('tag_name')} has no asset {ASSET_NAME}"
+        return f"install failed — release {release.get('tag_name')} has no asset {_asset_name()}"
     version = release.get("tag_name", "unknown")
     root = bundle_dir()
     if root.is_dir() and not _verify_bundle(root):
@@ -178,7 +210,7 @@ def install(tag: str | None = None, reinstall: bool = False) -> str:
     if root.exists():
         shutil.rmtree(root)
     root.parent.mkdir(parents=True, exist_ok=True)
-    tar_path = root.parent / ASSET_NAME
+    tar_path = root.parent / _asset_name()
     try:
         _download(asset["browser_download_url"], tar_path)
         actual = _file_sha256(tar_path)
@@ -216,8 +248,12 @@ def register_mcp_server(root: Path) -> str:
     is piped — `hermes mcp add` asks interactively even on non-TTY stdin and a
     piped run without the answer is cancelled and saves nothing. `--args`
     must be last: it consumes everything after it."""
+    import sys
     mcp_bin = root / "dosbox-mcp"
     emu_bin = root / "dosbox-automation"
+    if sys.platform.startswith("win"):
+        mcp_bin = mcp_bin.with_suffix(".exe")
+        emu_bin = emu_bin.with_suffix(".exe")
     cmd = [
         "hermes", "mcp", "add", PLUGIN_NAME,
         "--command", str(mcp_bin),

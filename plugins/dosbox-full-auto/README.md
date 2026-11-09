@@ -1,6 +1,6 @@
 # dosbox-full-auto
 
-One-directory DOSBox full automation for Hermes Agent (Linux x86_64).
+One-directory DOSBox full automation for Hermes Agent (Linux x86_64, Windows x86_64).
 
 Downloads the self-contained release bundle from
 [dosbox-automation-is-not-your-nanny](https://github.com/EternalNooblet/dosbox-automation-is-not-your-nanny)
@@ -29,18 +29,17 @@ server binary itself was rebuilt.
 
 ## What it downloads and runs (read this before installing)
 
-Setup (`install`) fetches ONE native bundle — about 16.5 MB,
-`dosbox-full-auto-linux-x86_64.tar.gz` — from the official GitHub Releases of
-the upstream project
+Setup (`install`) fetches ONE native bundle — about 16.5 MB — for the current
+platform from the official GitHub Releases of the upstream project
 [EternalNooblet/dosbox-automation-is-not-your-nanny](https://github.com/EternalNooblet/dosbox-automation-is-not-your-nanny/releases)
-(tag `v1.0.1`), verifies its SHA256 against the pinned digest in
+(tag `v1.0.2`), verifies its SHA256 against the pinned digest in
 `src/install.py` (`PINNED_DIGESTS`, the digest GitHub publishes for the asset),
 and only then extracts and executes it. Unpinned release tags are refused —
 nothing installs unless its checksum is in the table. The bundle contains
-native executables (`dosbox-automation`, `dosbox-mcp`), `resources/` (shaders,
-fonts, webserver assets) and `libiir.so`. Nothing is bundled in the plugin
-repo itself — this is a setup-time fetch, not a shipped payload (Hermes
-catalog rule 17), disclosed here per rule 13:
+native executables (`dosbox-mcp`, `dosbox-automation`), `resources/` (shaders,
+fonts, webserver assets) and `libiir.so` (Linux) / equivalent DLLs (Windows).
+Nothing is bundled in the plugin repo itself — this is a setup-time fetch, not
+a shipped payload (Hermes catalog rule 17), disclosed here per rule 13:
 
 - Network: GitHub API + release asset download at install time; Decision API
   (`decision.vllm-sr.ai`) for visual checks, key verified lazily via
@@ -65,7 +64,7 @@ launcher sets `LD_LIBRARY_PATH` from the bundle dir.
 
 ## Requirements
 
-- Linux x86_64 (Windows/macOS release jobs are still disabled upstream).
+- Linux x86_64 or Windows x86_64.
 - `VLLM_API_KEY` in the Hermes secret scope / environment (Decision API key;
   verified lazily, 24 h cooldown in `plugin_db()`).
 - Ports: MCP on 8387 (the dev pair keeps 8386).
@@ -84,6 +83,5 @@ launcher sets `LD_LIBRARY_PATH` from the bundle dir.
 
 ## Later
 
-- Enable Windows/macOS jobs in the release workflow (currently `if: false`).
 - VLLM key rotation (lazy verify + 24 h cooldown exists; rotation never
   creates keys from a flagged IP).
