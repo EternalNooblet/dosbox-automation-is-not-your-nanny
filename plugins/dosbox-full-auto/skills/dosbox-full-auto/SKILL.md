@@ -71,7 +71,7 @@ per run). ~59 s circuit-breaker cooldowns: poll in <=20 s chunks, not a sleep.
    c. **Decision API precision** — `capture_frame` + Decision API (`vllm-sr/d3-ultra`) with `box`/`noul`/`choice` questions for exact coordinates/confirmation
    d. Use Vision LLM output to frame Decision API questions; use Decision API output for precise mouse/keyboard actions
 4. Mouse: `send_input_sequence`; `mouse_move` requires `x_rel`/`y_rel` (one big relative move to clamp to edges/corners). `get_mouse_position` reports the last injected position — close the loop with it.
-5. Menu-bar drag menus (3DS.EXE class): press-and-hold, sweep x_rel while held, release inside panel bounds (release outside cancels). Discrete calls per event — timed `t` fields don't reliably register presses.
+5. Menu-bar drag menus: press-and-hold, sweep x_rel while held, release inside panel bounds (release outside cancels). Discrete calls per event — timed `t` fields don't reliably register presses.
 6. Pointer calibration without pixel math: relative moves + re-measure loop (d3 cursor box, delta px, move delta/scale ≈0.5 px/unit, re-measure until the noul gate "cursor tip is on X" is ~>=0.95 before committing).
 
 Key names: `KBD_*` canonical + friendly aliases (`enter`, `esc`, `space`, `left`, `a`-`z`, `0`-`9`, `f1`-`f12`), case-insensitive, prefix optional.
