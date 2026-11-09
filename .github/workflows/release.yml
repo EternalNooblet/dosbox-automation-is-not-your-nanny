@@ -107,7 +107,7 @@ jobs:
           if (-not (Test-Path dosbox-mcp-windows-x86_64.exe)) { throw "dosbox-mcp.exe missing" }
           Get-ChildItem dosbox-automation-windows-x86_64.exe, dosbox-mcp-windows-x86_64.exe | Select-Object Name,Length
           Get-ChildItem -Recurse build/release-windows/_deps/iir1-build -ErrorAction SilentlyContinue | Select-Object FullName,Length
-          Get-ChildItem build/release-windows/Release/Resources -ErrorAction SilentlyContinue | Select-Object -First 5 Name
+          Get-ChildItem build/release-windows/Resources -ErrorAction SilentlyContinue | Select-Object -First 5 Name
 
       - name: Stage self-contained bundle
         shell: pwsh
@@ -115,7 +115,7 @@ jobs:
           New-Item -ItemType Directory -Force -Path dosbox-full-auto-windows-x86_64/_deps/iir1-build | Out-Null
           Copy-Item dosbox-mcp-windows-x86_64.exe dosbox-full-auto-windows-x86_64/dosbox-mcp.exe
           Copy-Item dosbox-automation-windows-x86_64.exe dosbox-full-auto-windows-x86_64/dosbox-automation.exe
-          Copy-Item -Recurse build/release-windows/Release/Resources dosbox-full-auto-windows-x86_64/Resources
+          Copy-Item -Recurse build/release-windows/Resources dosbox-full-auto-windows-x86_64/Resources
           $iirDlls = Get-ChildItem -Recurse build/release-windows/_deps/iir1-build -Filter *.dll -ErrorAction SilentlyContinue
           if ($iirDlls) { $iirDlls | Copy-Item -Destination dosbox-full-auto-windows-x86_64/_deps/iir1-build/ }
           tar -czf dosbox-full-auto-windows-x86_64.tar.gz dosbox-full-auto-windows-x86_64
