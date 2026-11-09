@@ -7,6 +7,8 @@ on:
 
 permissions:
   contents: write
+  id-token: write   # GitHub build attestation (actions/attest-build-provenance)
+  attestations: write   # store provenance attestations for both bundles
 
 jobs:
   build-linux:
@@ -56,6 +58,12 @@ jobs:
           ls -la dosbox-full-auto-linux-x86_64/ dosbox-full-auto-linux-x86_64/_deps/iir1-build/
           tar -tzf dosbox-full-auto-linux-x86_64.tar.gz | head -20
 
+      - name: Attest bundle (GitHub build attestation, bound to this run + commit)
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dosbox-full-auto-linux-x86_64.tar.gz
+          subject-name: dosbox-full-auto-linux-x86_64.tar.gz
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -65,7 +73,6 @@ jobs:
   build-windows:
     name: Windows x86_64
     runs-on: windows-latest
-    if: false
     steps:
       - uses: actions/checkout@v4
         with:
@@ -84,22 +91,49 @@ jobs:
         run: |
           cd tools/dosbox-mcp
           cargo build --release
-          cp target/release/dosbox-mcp.exe ../../dosbox-mcp-windows-x86_64.exe
+          Copy-Item target/release/dosbox-mcp.exe ../../dosbox-mcp-windows-x86_64.exe
 
       - name: Build dosbox-automation (CMake)
         shell: pwsh
         run: |
-          cmake --preset release-windows
-          cmake --build --preset release-windows --config Release
-          cp build/release-windows/Release/dosbox-automation.exe ../dosbox-automation-windows-x86_64.exe
+          cmake --preset release-windows-vs2022
+          cmake --build --preset release-windows-vs2022 --config Release
+          Copy-Item build/release-windows-vs2022/Release/dosbox-automation.exe ../dosbox-automation-windows-x86_64.exe
+
+      - name: Verify Windows build outputs
+        shell: pwsh
+        run: |
+          if (-not (Test-Path ../dosbox-automation-windows-x86_64.exe)) { throw "dosbox-automation.exe missing" }
+          if (-not (Test-Path ../../dosbox-mcp-windows-x86_64.exe)) { throw "dosbox-mcp.exe missing" }
+          Get-ChildItem ../dosbox-automation-windows-x86_64.exe, ../../dosbox-mcp-windows-x86_64.exe | Select-Object Name,Length
+          Get-ChildItem -Recurse build/release-windows-vs2022/_deps/iir1-build -ErrorAction SilentlyContinue | Select-Object FullName,Length
+          Get-ChildItem build/release-windows-vs2022/Release/Resources -ErrorAction SilentlyContinue | Select-Object -First 5 Name
+
+      - name: Stage self-contained bundle
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dosbox-full-auto-windows-x86_64/_deps/iir1-build | Out-Null
+          Copy-Item ../../dosbox-mcp-windows-x86_64.exe dosbox-full-auto-windows-x86_64/dosbox-mcp.exe
+          Copy-Item ../dosbox-automation-windows-x86_64.exe dosbox-full-auto-windows-x86_64/dosbox-automation.exe
+          Copy-Item -Recurse build/release-windows-vs2022/Release/Resources dosbox-full-auto-windows-x86_64/Resources
+          $iirDlls = Get-ChildItem -Recurse build/release-windows-vs2022/_deps/iir1-build -Filter *.dll -ErrorAction SilentlyContinue
+          if ($iirDlls) { $iirDlls | Copy-Item -Destination dosbox-full-auto-windows-x86_64/_deps/iir1-build/ }
+          tar -czf dosbox-full-auto-windows-x86_64.tar.gz dosbox-full-auto-windows-x86_64
+          Write-Host "--- bundle contents ---"
+          Get-ChildItem -Recurse dosbox-full-auto-windows-x86_64 | Select-Object FullName,Length
+          tar -tzf dosbox-full-auto-windows-x86_64.tar.gz | Select-Object -First 20
+
+      - name: Attest bundle (GitHub build attestation, bound to this run + commit)
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dosbox-full-auto-windows-x86_64.tar.gz
+          subject-name: dosbox-full-auto-windows-x86_64.tar.gz
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: windows-x86_64
-          path: |
-            dosbox-mcp-windows-x86_64.exe
-            dosbox-automation-windows-x86_64.exe
+          path: dosbox-full-auto-windows-x86_64.tar.gz
 
   build-macos-x86_64:
     name: macOS x86_64
@@ -177,7 +211,7 @@ jobs:
 
   release:
     name: Create GitHub Release
-    needs: [build-linux]
+    needs: [build-linux, build-windows]
     runs-on: ubuntu-latest
     steps:
       - name: Download all artifacts
@@ -193,6 +227,7 @@ jobs:
         with:
           files: |
             artifacts/linux-x86_64/dosbox-full-auto-linux-x86_64.tar.gz
+            artifacts/windows-x86_64/dosbox-full-auto-windows-x86_64.tar.gz
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
