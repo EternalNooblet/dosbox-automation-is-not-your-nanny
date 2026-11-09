@@ -77,8 +77,8 @@ jobs:
         shell: pwsh
         run: |
           cmake --preset release-windows
-          cmake --build --preset release-windows
-          cp build/release-windows/dosbox-automation.exe ../dosbox-automation-windows-x86_64.exe
+          cmake --build --preset release-windows --config Release
+          cp build/release-windows/Release/dosbox-automation.exe ../dosbox-automation-windows-x86_64.exe
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
