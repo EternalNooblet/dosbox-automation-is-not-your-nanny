@@ -1,6 +1,6 @@
 ---
 name: dosbox-full-auto
-description: "Drive DOSBox via the dosbox-full-auto MCP server (tools mcp_dosbox_full_auto__*) and verify visuals with the Decision API (vllm-sr/d3-ultra). Use for any task touching the running DOSBox emulator or asking Decision API questions."
+description: "Drive DOSBox via the dosbox-full-auto MCP server (tools mcp_dosbox_full_auto__*) and verify visuals with Vision LLM + Decision API (vllm-sr/d3-ultra). Use for any task touching the running DOSBox emulator or asking Decision API questions."
 ---
 
 # DOSBox Full-Auto (merged skill)
@@ -35,15 +35,6 @@ mcp_servers:
 Tools appear as `mcp_dosbox_full_auto__*`. A new `mcp_servers` entry is picked
 up mid-session; only a rebuilt server binary needs a new session.
 
-## Rule #0 — screen content comes from the user
-
-Never use `vision_analyze` and never read screen *content* yourself
-(`read_screen_text`). UI content state comes only from the user's report.
-Sole exception: programmatic all-black detection (`capture_frame` raw PNG +
-`scripts/blackcheck.py`) — pixel math only, tests pure-black, not content.
-Decision API box/noul questions on a capture are the sanctioned visual path
-(see references/decision-api.md); read content myself never.
-
 ## Rule #1 — MCP tools only
 
 Drive DOSBox only through `mcp_dosbox_full_auto__*` (55 tools: memory, ports,
@@ -70,25 +61,20 @@ per run). ~59 s circuit-breaker cooldowns: poll in <=20 s chunks, not a sleep.
 3. Any MCP call respawns server + emulator with identical flags.
 4. Mounts die with the emulator — remount and re-enter commands every respawn.
 
-## Graphics-mode workflow
+## Graphics-mode workflow (vision+d3)
 
 1. `type_text "PROG.EXE\n"` — `\n` is Enter; bursts queue, so read after the burst settles.
 2. `get_status` — authoritative `program`/`canonical_name`/`is_shell` check.
-3. Screen state from the user by default; in graphics mode `read_screen_text`
-   fails with a `/video/text` decode error — use `get_frame_info` +
-   Decision API box questions (references/decision-api.md).
-4. Mouse: `send_input_sequence`; `mouse_move` requires `x_rel`/`y_rel`
-   (one big relative move to clamp to edges/corners). `get_mouse_position`
-   reports the last injected position — close the loop with it.
-5. Menu-bar drag menus (3DS.EXE class): press-and-hold, sweep x_rel while
-   held, release inside panel bounds (release outside cancels). Discrete
-   calls per event — timed `t` fields don't reliably register presses.
-6. Pointer calibration without pixel math: relative moves + re-measure loop
-   (d3 cursor box, delta px, move delta/scale ≈0.5 px/unit, re-measure until
-   the noul gate "cursor tip is on X" is ~>=0.95 before committing).
+3. **Vision+d3 pipeline:**
+   a. `capture_frame(mode="rendered", format="png")` → get base64 PNG
+   b. **Vision LLM first pass** — `vision_analyze` on the screenshot: describe UI, locate elements, get coarse positions
+   c. **Decision API precision** — `capture_frame` + Decision API (`vllm-sr/d3-ultra`) with `box`/`noul`/`choice` questions for exact coordinates/confirmation
+   d. Use Vision LLM output to frame Decision API questions; use Decision API output for precise mouse/keyboard actions
+4. Mouse: `send_input_sequence`; `mouse_move` requires `x_rel`/`y_rel` (one big relative move to clamp to edges/corners). `get_mouse_position` reports the last injected position — close the loop with it.
+5. Menu-bar drag menus (3DS.EXE class): press-and-hold, sweep x_rel while held, release inside panel bounds (release outside cancels). Discrete calls per event — timed `t` fields don't reliably register presses.
+6. Pointer calibration without pixel math: relative moves + re-measure loop (d3 cursor box, delta px, move delta/scale ≈0.5 px/unit, re-measure until the noul gate "cursor tip is on X" is ~>=0.95 before committing).
 
-Key names: `KBD_*` canonical + friendly aliases (`enter`, `esc`, `space`,
-`left`, `a`-`z`, `0`-`9`, `f1`-`f12`), case-insensitive, prefix optional.
+Key names: `KBD_*` canonical + friendly aliases (`enter`, `esc`, `space`, `left`, `a`-`z`, `0`-`9`, `f1`-`f12`), case-insensitive, prefix optional.
 `analyze_frame` gives black ratio/luma/hash (works in graphics mode).
 
 ## Black-watch loop
