@@ -1,0 +1,10 @@
+# Committed bytecode would fail Hermes catalog rule 17 (no unscannable payloads).
+__pycache__/
+*.pyc
+*.pyo
+# Bundled natives would fail rule 17 — binaries are fetched at setup time only,
+# pinned by checksum (see src/install.py PINNED_DIGESTS).
+*.so
+*.dll
+*.exe
+*.dylib

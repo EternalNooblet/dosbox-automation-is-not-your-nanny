@@ -1,0 +1,10 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dosbox-full-auto"
+version = "0.1.0"
+description = "Hermes plugin: DOSBox full-auto release bundle installer + MCP registration + merged skill"
+requires-python = ">=3.10"
+dependencies = []

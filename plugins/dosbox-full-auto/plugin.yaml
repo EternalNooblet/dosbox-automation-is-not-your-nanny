@@ -1,0 +1,10 @@
+name: dosbox-full-auto
+version: 0.1.0
+description: "One-directory DOSBox full automation: downloads the self-contained release bundle (dosbox-automation + dosbox-mcp + resources + libiir), registers it as the dosbox-full-auto MCP server on port 8387, and ships the merged driving skill."
+author: papa
+kind: standalone
+platforms:
+  - linux
+requires_hermes: ">=0.22.7"
+requires_env:
+  - VLLM_API_KEY
