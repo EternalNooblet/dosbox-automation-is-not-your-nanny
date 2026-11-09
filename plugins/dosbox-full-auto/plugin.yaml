@@ -9,3 +9,9 @@ platforms:
 requires_hermes: ">=0.22.7"
 requires_env:
   - VLLM_API_KEY
+capabilities:
+  provides_tools: []
+  provides_hooks: []
+  provides_middleware: []
+  requires_env:
+    - VLLM_API_KEY
