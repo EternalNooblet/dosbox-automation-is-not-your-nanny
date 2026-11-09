@@ -28,7 +28,7 @@ jobs:
             libsdl3-dev libsdl3-image-dev \
             libfreetype-dev libpng-dev libgl-dev \
             libasound2-dev libarchive-dev libbz2-dev zlib1g-dev \
-            libspeexdsp-dev libgtest-dev \
+            libspeexdsp-dev libgtest-dev libgmock-dev \
             libopusfile-dev \
             python3 \
             xvfb x11-utils \
