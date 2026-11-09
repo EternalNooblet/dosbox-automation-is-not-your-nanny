@@ -28,7 +28,8 @@ jobs:
             libsdl2-dev libsdl2-net-dev libsdl2-mixer-dev \
             libopus-dev libfluidsynth-dev libpng-dev \
             libbz2-dev \
-            libarchive-dev
+            libarchive-dev \
+            libfreetype-dev
 
       - name: Build dosbox-mcp (Rust)
         run: |
