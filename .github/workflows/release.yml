@@ -24,12 +24,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            cmake ninja-build pkg-config \
-            libsdl2-dev libsdl2-net-dev libsdl2-mixer-dev \
-            libsdl3-image-dev \
-            libopus-dev libfluidsynth-dev libpng-dev \
-            libbz2-dev \
-            libarchive-dev
+            cmake ninja-build pkg-config
 
       - name: Build dosbox-mcp (Rust)
         run: |
@@ -39,7 +34,7 @@ jobs:
 
       - name: Build dosbox-automation (CMake)
         run: |
-          cmake --preset release-linux
+          cmake --preset release-linux -DOPT_FETCH_DEPS=ON
           cmake --build --preset release-linux
           cp build/release-linux/dosbox-automation ../dosbox-automation-linux-x86_64
 
@@ -112,7 +107,7 @@ jobs:
 
       - name: Build dosbox-automation (CMake)
         run: |
-          cmake --preset release-macos-homebrew
+          cmake --preset release-macos-homebrew -DOPT_FETCH_DEPS=ON
           cmake --build --preset release-macos-homebrew
           cp build/release-macos-homebrew/dosbox-automation ../dosbox-automation-macos-x86_64
 
@@ -149,7 +144,7 @@ jobs:
 
       - name: Build dosbox-automation (CMake)
         run: |
-          cmake --preset release-macos-homebrew
+          cmake --preset release-macos-homebrew -DOPT_FETCH_DEPS=ON
           cmake --build --preset release-macos-homebrew
           cp build/release-macos-homebrew/dosbox-automation ../dosbox-automation-macos-arm64
 
