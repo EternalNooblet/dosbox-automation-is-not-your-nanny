@@ -29,7 +29,7 @@ jobs:
             libfreetype-dev libpng-dev libgl-dev \
             libasound2-dev libarchive-dev libbz2-dev zlib1g-dev \
             libspeexdsp-dev libgtest-dev libgmock-dev \
-            libopusfile-dev \
+            libopusfile-dev libasio-dev \
             python3 \
             xvfb x11-utils \
             curl
