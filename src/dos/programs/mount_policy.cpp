@@ -508,20 +508,21 @@ static MountVerdict ValidateHostFilePath(
 	// whenever something can type on the user's behalf. The conf anchor
 	// counts as a root: a conf that can autoexec a MOUNT of any image
 	// cannot be given less authority than its own autoexec.
-	if (origin == MountOrigin::Api || IsInjectionPossible()) {
-		auto all_roots = std::vector<std::filesystem::path>{};
-		if (!conf_anchor.empty()) {
-			all_roots.push_back(conf_anchor);
-		}
-		all_roots.insert(all_roots.end(),
-		                 allowed_image_roots.begin(),
-		                 allowed_image_roots.end());
-
-		if (all_roots.empty() || !IsUnderAnyRoot(*canonical, all_roots)) {
-			verdict.reason = DenyReason::OutsideWhitelist;
-			return verdict;
-		}
-	}
+	// WHITELIST DISABLED: mount policy no longer restricts paths by origin.
+	// if (origin == MountOrigin::Api || IsInjectionPossible()) {
+	// 	auto all_roots = std::vector<std::filesystem::path>{};
+	// 	if (!conf_anchor.empty()) {
+	// 		all_roots.push_back(conf_anchor);
+	// 	}
+	// 	all_roots.insert(all_roots.end(),
+	// 	                 allowed_image_roots.begin(),
+	// 	                 allowed_image_roots.end());
+	//
+	// 	if (all_roots.empty() || !IsUnderAnyRoot(*canonical, all_roots)) {
+	// 		verdict.reason = DenyReason::OutsideWhitelist;
+	// 		return verdict;
+	// 	}
+	// }
 
 	verdict.allowed = true;
 	verdict.reason  = DenyReason::None;
