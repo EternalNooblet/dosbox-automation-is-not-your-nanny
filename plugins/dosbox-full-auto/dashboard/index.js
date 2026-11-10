@@ -275,6 +275,9 @@
           timestamp: Date.now()
         }]);
 
+        const prefix = "load and use all dosbox-full-auto. use only the dosbox-mcp commands to interact with dos apps. ";
+        const enhancedMessage = prefix + message;
+
         const submitId = ++requestIdRef.current;
         ws.send(JSON.stringify({
           jsonrpc: "2.0",
@@ -282,7 +285,7 @@
           method: "prompt.submit",
           params: {
             session_id: sessionIdRef.current,
-            text: message,
+            text: enhancedMessage,
             surface: "dashboard-plugin"
           }
         }));
@@ -301,9 +304,9 @@
       h(CardHeader, { key: "header" },
         h(CardTitle, { className: "flex items-center gap-2" }, "dosbox-full-auto")
       ),
-      h(CardContent, { key: "content", className: "flex-1 flex flex-col p-4 gap-4 min-h-0" }, [
-        // Video section
-        h("div", { key: "video", className: "flex-1 flex flex-col gap-2 min-h-0" }, [
+      h(CardContent, { key: "content", className: "flex-1 flex flex-row p-4 gap-4 min-h-0" }, [
+        // Video section (left)
+        h("div", { key: "video", style: { flex: "1 1 0%", minWidth: 0 }, className: "flex flex-col gap-2" }, [
           h("div", { key: "controls", className: "flex items-center gap-4 flex-wrap" }, [
             h("div", { key: "mode", className: "flex items-center gap-2" }, [
               h("label", { key: "label", className: "text-sm" }, "Mode"),
@@ -349,7 +352,7 @@
               "text-yellow-400 bg-yellow-500/20"
             }` }, wsStatus),
           ]),
-          h("div", { key: "viewport", className: "flex-1 flex items-center justify-center relative min-h-[250px] bg-black/20 rounded" }, [
+          h("div", { key: "viewport", className: "flex-1 flex items-center justify-center relative bg-black/20 rounded" }, [
             frameUrl && h("img", {
               key: "frame",
               src: frameUrl,
@@ -370,9 +373,9 @@
           h("p", { key: "status", className: "text-xs text-muted-foreground text-center" }, statusLabel),
         ]),
 
-        // Chat section
-        h("div", { key: "chat", className: "flex flex-col gap-2 border-t pt-2 min-h-[200px]" }, [
-          h("div", { key: "scroll", className: "flex-1 min-h-0 pr-2 overflow-y-auto" }, [
+        // Chat section (right)
+        h("div", { key: "chat", style: { width: "20vw", maxWidth: "20vw", minWidth: "20vw", flexShrink: 0, flexGrow: 0, overflow: "hidden" }, className: "flex flex-col gap-2 border-l pl-4 min-h-0" }, [
+          h("div", { key: "scroll", className: "flex-1 min-h-0 pr-2 overflow-y-auto overflow-x-hidden" }, [
             messages.length === 0 ? h("div", {
               key: "empty",
               className: "flex items-center justify-center h-full text-muted-foreground text-sm"
@@ -382,11 +385,11 @@
             }, [
               msg.role === "user" && h("div", {
                 key: "user",
-                className: "bg-primary text-primary-foreground px-3 py-2 rounded-lg max-w-[80%] text-sm"
+                className: "bg-primary text-primary-foreground px-3 py-2 rounded-lg max-w-[80%] text-sm break-words overflow-wrap-anywhere"
               }, msg.content),
               msg.role === "assistant" && h("div", {
                 key: "assistant",
-                className: "w-full"
+                className: "w-full break-words"
               }, [
                 msg.thinking && h("div", {
                   key: "thinking",
@@ -394,14 +397,14 @@
                 }, msg.thinking),
                 msg.content && h("div", {
                   key: "content",
-                  className: "bg-muted px-3 py-2 rounded-lg max-w-[80%] text-sm"
+                  className: "bg-muted px-3 py-2 rounded-lg max-w-[80%] text-sm break-words overflow-wrap-anywhere"
                 }, msg.content),
                 (msg.toolCalls && msg.toolCalls.length > 0) && h("div", {
                   key: "tools",
-                  className: "mt-1 space-y-1"
+                  className: "mt-1 space-y-1 break-words"
                 }, msg.toolCalls.map((tc, ti) => h("div", {
                   key: ti,
-                  className: `text-xs px-2 py-1 rounded ${tc.status === "complete" ? "bg-green-500/20 text-green-400" : "bg-blue-500/20 text-blue-400"}`
+                  className: `text-xs px-2 py-1 rounded ${tc.status === "complete" ? "bg-green-500/20 text-green-400" : "bg-blue-500/20 text-blue-400"} break-words`
                 }, `${tc.name}: ${JSON.stringify(tc.args || {})}${tc.result ? ` → ${JSON.stringify(tc.result).slice(0, 100)}` : ""}`))),
                 msg.usage && h("div", {
                   key: "usage",
