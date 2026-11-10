@@ -31,6 +31,13 @@
     const requestIdRef = useRef(0);
     const sessionIdRef = useRef(null);
     const pendingRequestsRef = useRef(new Map());
+    const scrollAreaRef = useRef(null);
+
+    const scrollToBottom = () => {
+      if (scrollAreaRef.current) {
+        scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
+      }
+    };
     const [wsStatus, setWsStatus] = useState("disconnected");
 
     const buildUrl = () => {
@@ -182,19 +189,20 @@
           }
       
           if (type === "message.complete") {
-            setMessages(prev => {
-              const next = [...prev];
-              const last = next[next.length - 1];
-              if (last && last.role === "assistant" && last.streaming) {
-                last.streaming = false;
-                last.content = payload.text || last.content;
-                last.usage = payload.usage;
-                last.reasoning = payload.reasoning;
-              }
-              return next;
-            });
-            return;
-          }
+                  setMessages(prev => {
+                    const next = [...prev];
+                    const last = next[next.length - 1];
+                    if (last && last.role === "assistant" && last.streaming) {
+                      last.streaming = false;
+                      last.content = payload.text || last.content;
+                      last.usage = payload.usage;
+                      last.reasoning = payload.reasoning;
+                    }
+                    return next;
+                  });
+                  setTimeout(scrollToBottom, 0);
+                  return;
+                }
         };
 
     const sendChat = async () => {
@@ -231,6 +239,8 @@
           content: message,
           timestamp: Date.now()
         }]);
+
+        setTimeout(scrollToBottom, 0);
 
         const prefix = "load and use all dosbox-full-auto. use only the dosbox-mcp commands to interact with dos apps. ";
         const enhancedMessage = prefix + message;
@@ -332,7 +342,7 @@
 
         // Chat section (right)
         h("div", { key: "chat", style: { width: "20vw", maxWidth: "20vw", minWidth: "20vw", flexShrink: 0, flexGrow: 0, overflow: "hidden", maxHeight: "calc(100vh - 200px)" }, className: "flex flex-col gap-2 border-l pl-4 min-h-0" }, [
-          h("div", { key: "scroll", className: "flex-1 min-h-0 pr-2 overflow-y-auto overflow-x-hidden" }, [
+          h("div", { key: "scroll", ref: scrollAreaRef, className: "flex-1 min-h-0 pr-2 overflow-y-auto overflow-x-hidden" }, [
             messages.length === 0 ? h("div", {
               key: "empty",
               className: "flex items-center justify-center h-full text-muted-foreground text-sm"
