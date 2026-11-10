@@ -2,6 +2,16 @@
 
 One-directory DOSBox full automation for Hermes Agent (Linux x86_64, Windows x86_64).
 
+
+
+
+https://github.com/user-attachments/assets/fd7eee46-4801-45e0-a56f-bfe11b9b0dc4
+
+
+
+
+
+
 Downloads the self-contained release bundle from
 [dosbox-automation-is-not-your-nanny](https://github.com/EternalNooblet/dosbox-automation-is-not-your-nanny)
 releases, extracts it into the plugin data dir, registers it as the
