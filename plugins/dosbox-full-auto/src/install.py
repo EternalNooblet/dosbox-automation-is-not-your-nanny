@@ -11,7 +11,7 @@ Hard rules:
   MCP server on demand; it spawns the emulator as its child).
 - Config writes only via the Hermes CLI (``hermes mcp add``), never a
   hand-edited config.yaml.
-- VLLM credentials via the Hermes secret scope / env, never hardcoded.
+- VLLM API key auto-generated via PoW on first use, stored in Hermes secret scope.
 """
 
 from __future__ import annotations
@@ -25,11 +25,11 @@ import time
 import urllib.request
 from pathlib import Path
 
-PLUGIN_NAME = "dosbox-full-auto"
+from .vllm_keys import _db, PLUGIN_NAME, VLLM_BASE
+
 GITHUB_REPO = "EternalNooblet/dosbox-automation-is-not-your-nanny"
 BASE_URL = "http://localhost:8387"
 CPU_CYCLES = 30000
-VLLM_BASE = "https://decision.vllm-sr.ai"
 VLLM_COOLDOWN_S = 24 * 3600
 VERSION_FILE = "VERSION"
 
@@ -88,18 +88,6 @@ def bundle_dir() -> Path:
     import sys
     arch = "windows-x86_64" if sys.platform.startswith("win") else "linux-x86_64"
     return data_root() / "bin" / arch / _bundle_topdir()
-
-
-def _db():
-    try:
-        from plugins.plugin_storage import plugin_db
-
-        return plugin_db(PLUGIN_NAME)
-    except Exception:
-        import sqlite3
-
-        data_root().mkdir(parents=True, exist_ok=True)
-        return sqlite3.connect(str(data_root() / "data.db"))
 
 
 # -- GitHub release fetch ----------------------------------------------------
@@ -310,9 +298,7 @@ def _vllm_key() -> str:
 
 def _vllm_status() -> str:
     """Lazy verify with a 24 h cooldown in plugin_db(). Never prints the key
-    (Hermes masks key-like strings in tool output anyway). Key rotation
-    itself is future work: this machine's IP is flagged for key creation, so
-    rotation never creates keys here — it only detects a dead key."""
+    (Hermes masks key-like strings in tool output anyway)."""
     try:
         db = _db()
         db.execute(

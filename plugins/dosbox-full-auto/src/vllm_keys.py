@@ -7,11 +7,35 @@ import itertools
 import json
 import time
 import urllib.request
+from pathlib import Path
 
-from .install import _db, VLLM_BASE, PLUGIN_NAME
+# Shared constants (avoid circular import with install.py)
+PLUGIN_NAME = "dosbox-full-auto"
+VLLM_BASE = "https://decision.vllm-sr.ai"
 
 # Rate limits: 5 keys/IP/hour, 20/day
 VLLM_KEY_CREATE_COOLDOWN_S = 720  # 12 min between attempts (5/hr)
+VLLM_KEY_DAILY_LIMIT = 20
+VLLM_DAILY_WINDOW_S = 24 * 3600
+
+
+def _db():
+    """Get plugin database connection."""
+    try:
+        from plugins.plugin_storage import plugin_db
+        return plugin_db(PLUGIN_NAME)
+    except Exception:
+        import sqlite3
+        try:
+            from plugins.plugin_storage import plugin_data_dir
+            root = plugin_data_dir(PLUGIN_NAME)
+        except Exception:
+            import os
+            from hermes_constants import get_hermes_home
+            home = Path(get_hermes_home())
+            root = home / "plugin-data" / PLUGIN_NAME
+        root.mkdir(parents=True, exist_ok=True)
+        return sqlite3.connect(str(root / "data.db"))
 
 
 def _vllm_key() -> str:
@@ -93,25 +117,36 @@ def _create_key_pow() -> str | None:
 
 def ensure_vllm_key() -> str:
     """Ensure a working VLLM_API_KEY exists in secret scope.
-    Creates new one via PoW if missing/dead. Respects rate limits.
+    Creates new one via PoW if missing/dead. Respects rate limits (5/hr, 20/day).
     Returns the key or empty string on failure."""
     # Check existing key
     key = _vllm_key()
     if key and _verify_key(key):
         return key
 
-    # Check creation cooldown
+    # Check creation cooldowns
     db = _db()
     db.execute(
         "CREATE TABLE IF NOT EXISTS vllm_key_created "
         "(id INTEGER PRIMARY KEY, created_at REAL)"
     )
+    now = time.time()
+
+    # Hourly cooldown (5/hr = 720s)
     row = db.execute(
         "SELECT created_at FROM vllm_key_created WHERE id = 1"
     ).fetchone()
-    now = time.time()
     if row and row[0] and (now - row[0]) < VLLM_KEY_CREATE_COOLDOWN_S:
-        return ""  # rate limited
+        return ""  # hourly rate limited
+
+    # Daily limit (20/day)
+    day_start = now - (now % VLLM_DAILY_WINDOW_S)
+    daily_count = db.execute(
+        "SELECT COUNT(*) FROM vllm_key_created WHERE created_at >= ?",
+        (day_start,)
+    ).fetchone()[0]
+    if daily_count >= VLLM_KEY_DAILY_LIMIT:
+        return ""  # daily limit reached
 
     # Create new key
     new_key = _create_key_pow()

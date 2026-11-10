@@ -5,8 +5,7 @@ description: "Drive DOSBox via the dosbox-full-auto MCP server (tools mcp_dosbox
 
 # DOSBox Full-Auto (merged skill)
 
-Merged from `dosbox-mcp-driving` + `decision-vllm-skill` + the vision/d3 method.
-Source skills stay installed; this is the single entry point the plugin ships.
+Merged skill combining DOSBox MCP driving, Decision API (vllm-sr/d3-ultra), and vision/d3 method.
 
 ## Install / status
 
@@ -99,8 +98,8 @@ report. BLACK for 10 s = restart flow, remount, re-run, watch again.
 ## Decision API (visual verification)
 
 Full detail: references/decision-api.md. Only model: `vllm-sr/d3-ultra`.
-Key: `${VLLM_API_KEY}`, verified lazily with a 24 h plugin_db() cooldown;
-never create keys from a flagged IP and never print/store key text.
+Key: `${VLLM_API_KEY}`, auto-generated via PoW on first use (or when dead),
+stored in Hermes secret scope, verified lazily with a 24 h plugin_db() cooldown.
 Batch all questions about one input into ONE request; respect 429 Retry-After
 with backoff + jitter; never send sensitive data (everything may be logged).
 
