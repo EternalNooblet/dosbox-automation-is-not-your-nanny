@@ -9,7 +9,9 @@
   const { useState, useEffect, useRef } = hooks;
   const { Card, CardHeader, CardTitle, CardContent } = SDK.components;
 
-  const BASE_URL = "http://localhost:8386/api/v1/video/frame";
+  // Use the dashboard's host for the webserver URL
+  const WS_HOST = window.location.hostname || "localhost";
+  const BASE_URL = `http://${WS_HOST}:8387/api/v1/video/frame`;
 
   function DosboxVideoTab() {
     const [mode, setMode] = useState("rendered");
