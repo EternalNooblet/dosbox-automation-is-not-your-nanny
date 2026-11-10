@@ -34,7 +34,7 @@ def _status() -> str:
 
 
 def _handle_slash(raw_args: str) -> str | None:
-    """`/dosbox-full-auto [install|status|reinstall|help]` — never raises."""
+    """/dosbox-full-auto [install|status|reinstall|create-key|key-status|help] — never raises."""
     try:
         parts = raw_args.strip().split()
         cmd = parts[0] if parts else "status"
@@ -44,11 +44,26 @@ def _handle_slash(raw_args: str) -> str | None:
             return _install(reinstall=True)
         if cmd == "status":
             return _status()
+        if cmd == "create-key":
+            from .src.vllm_keys import _create_key_pow, _vllm_set_key
+            key = _create_key_pow()
+            if key:
+                _vllm_set_key(key)
+                return f"created: {key}"
+            return "key creation failed"
+        if cmd == "key-status":
+            from .src.vllm_keys import _vllm_key, _verify_key
+            key = _vllm_key()
+            if not key:
+                return "VLLM_API_KEY not set"
+            return "VLLM_API_KEY: active" if _verify_key(key) else "VLLM_API_KEY: invalid/dead"
         if cmd in ("help", "-h", "--help"):
             return ("dosbox-full-auto — DOSBox full automation\n"
                     "  /dosbox-full-auto status      bundle + MCP entry + VLLM key state\n"
                     "  /dosbox-full-auto install     download release bundle, register MCP server\n"
                     "  /dosbox-full-auto reinstall   force a fresh download\n"
+                    "  /dosbox-full-auto create-key  create new VLLM API key via PoW\n"
+                    "  /dosbox-full-auto key-status  show VLLM key status\n"
                     "Skill: dosbox-full-auto (merged MCP-driving + Decision API rules)")
         return f"unknown subcommand: {cmd} (try help)"
     except Exception as exc:  # a slash handler error must never break the turn
@@ -60,6 +75,8 @@ def _cli_setup(parser: argparse.ArgumentParser) -> None:
     subs.add_parser("status", help="bundle + MCP entry + VLLM key state")
     subs.add_parser("install", help="download release bundle, register MCP server")
     subs.add_parser("reinstall", help="force a fresh download")
+    subs.add_parser("create-key", help="create new VLLM API key via PoW (respects 5/hr limit)")
+    subs.add_parser("key-status", help="show VLLM key status (verifies with API)")
 
 
 def _cli_dispatch(args: argparse.Namespace) -> int:
@@ -72,6 +89,26 @@ def _cli_dispatch(args: argparse.Namespace) -> int:
         return 0
     if sub == "reinstall":
         print(_install(reinstall=True))
+        return 0
+    if sub == "create-key":
+        from .src.vllm_keys import _create_key_pow, _vllm_set_key
+        key = _create_key_pow()
+        if key:
+            _vllm_set_key(key)
+            print(key)
+        else:
+            print("key creation failed")
+        return 0
+    if sub == "key-status":
+        from .src.vllm_keys import _vllm_key, _verify_key
+        key = _vllm_key()
+        if not key:
+            print("VLLM_API_KEY not set")
+            return 0
+        if _verify_key(key):
+            print("VLLM_API_KEY: active")
+        else:
+            print("VLLM_API_KEY: invalid/dead")
         return 0
     print(f"unknown subcommand: {sub}", flush=True)
     return 2
@@ -90,7 +127,7 @@ def register(ctx) -> None:
         "dosbox-full-auto",
         handler=_handle_slash,
         description="Install/status the DOSBox full-auto release bundle and MCP server.",
-        args_hint="[install|status|reinstall]",
+        args_hint="[install|status|reinstall|create-key|key-status]",
     )
     ctx.register_cli_command(
         name="dosbox-full-auto",

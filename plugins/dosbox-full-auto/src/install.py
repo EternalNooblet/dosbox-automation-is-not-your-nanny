@@ -5,7 +5,7 @@ assets: libiir.so.1 missing, then RENDER fallback-shader abort — v1.0.0).
 All paths resolve under the plugin data dir, never the plugin source dir
 (which is git-pulled by ``plugins update`` and deleted by ``plugins remove``).
 
-Hard rules (see KNOWLEDGE_AND_PLAN.md):
+Hard rules:
 - No custom MCP tool wrappers — the agent calls mcp_dosbox_full_auto__* directly.
 - No subprocess management of the server/emulator (Hermes spawns the stdio
   MCP server on demand; it spawns the emulator as its child).
@@ -350,6 +350,9 @@ def _vllm_status() -> str:
 
 
 def status() -> str:
+    # Auto-ensure VLLM key exists (creates via PoW if missing/dead, respects rate limits)
+    from .vllm_keys import ensure_vllm_key
+    ensure_vllm_key()
     root = bundle_dir()
     lines = []
     if root.is_dir():
