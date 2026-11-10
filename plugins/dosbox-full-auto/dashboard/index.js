@@ -134,111 +134,68 @@
     };
 
     const handleEvent = (params) => {
-      const { type, payload, session_id, seq } = params;
+          const { type, payload, session_id, seq } = params;
       
-      if (type === "gateway.ready") {
-        return;
-      }
+          if (type === "gateway.ready") {
+            return;
+          }
       
-      if (type === "message.start") {
-        setMessages(prev => [...prev, {
-          role: "assistant",
-          content: "",
-          thinking: "",
-          toolCalls: [],
-          turnId: payload.turn_id,
-          streaming: true
-        }]);
-        return;
-      }
-
-      if (type === "message.delta") {
-        setMessages(prev => {
-          const next = [...prev];
-          const last = next[next.length - 1];
-          if (last && last.role === "assistant" && last.streaming) {
-            last.content = (last.content || "") + (payload.text || "");
+          if (type === "message.start") {
+            setMessages(prev => [...prev, {
+              role: "assistant",
+              content: "",
+              thinking: "",
+              toolCalls: [],
+              turnId: payload.turn_id,
+              streaming: true
+            }]);
+            return;
           }
-          return next;
-        });
-        return;
-      }
-
-      if (type === "thinking.delta") {
-        setMessages(prev => {
-          const next = [...prev];
-          const last = next[next.length - 1];
-          if (last && last.role === "assistant" && last.streaming) {
-            last.thinking = (last.thinking || "") + (payload.text || "");
+      
+          if (type === "message.delta") {
+            setMessages(prev => {
+              const next = [...prev];
+              const last = next[next.length - 1];
+              if (last && last.role === "assistant" && last.streaming) {
+                last.content = (last.content || "") + (payload.text || "");
+              }
+              return next;
+            });
+            return;
           }
-          return next;
-        });
-        return;
-      }
-
-      if (type === "tool.generating") {
-        setMessages(prev => {
-          const next = [...prev];
-          const last = next[next.length - 1];
-          if (last && last.role === "assistant" && last.streaming) {
-            last.toolCalls = [...(last.toolCalls || []), {
-              name: payload.name,
-              args: {},
-              status: "generating"
-            }];
+      
+          if (type === "thinking.delta") {
+            setMessages(prev => {
+              const next = [...prev];
+              const last = next[next.length - 1];
+              if (last && last.role === "assistant" && last.streaming) {
+                last.thinking = (last.thinking || "") + (payload.text || "");
+              }
+              return next;
+            });
+            return;
           }
-          return next;
-        });
-        return;
-      }
-
-      if (type === "tool.start") {
-        setMessages(prev => {
-          const next = [...prev];
-          const last = next[next.length - 1];
-          if (last && last.role === "assistant" && last.streaming) {
-            last.toolCalls = last.toolCalls.map(tc => 
-              tc.name === payload.name && tc.status === "generating"
-                ? { ...tc, args: payload.args, status: "running", toolId: payload.tool_id }
-                : tc
-            );
+      
+          // Skip tool events - don't render them in chat
+          if (type === "tool.generating" || type === "tool.start" || type === "tool.complete") {
+            return;
           }
-          return next;
-        });
-        return;
-      }
-
-      if (type === "tool.complete") {
-        setMessages(prev => {
-          const next = [...prev];
-          const last = next[next.length - 1];
-          if (last && last.role === "assistant" && last.streaming) {
-            last.toolCalls = last.toolCalls.map(tc => 
-              tc.toolId === payload.tool_id
-                ? { ...tc, result: payload.result, status: "complete", duration: payload.duration_s }
-                : tc
-            );
+      
+          if (type === "message.complete") {
+            setMessages(prev => {
+              const next = [...prev];
+              const last = next[next.length - 1];
+              if (last && last.role === "assistant" && last.streaming) {
+                last.streaming = false;
+                last.content = payload.text || last.content;
+                last.usage = payload.usage;
+                last.reasoning = payload.reasoning;
+              }
+              return next;
+            });
+            return;
           }
-          return next;
-        });
-        return;
-      }
-
-      if (type === "message.complete") {
-        setMessages(prev => {
-          const next = [...prev];
-          const last = next[next.length - 1];
-          if (last && last.role === "assistant" && last.streaming) {
-            last.streaming = false;
-            last.content = payload.text || last.content;
-            last.usage = payload.usage;
-            last.reasoning = payload.reasoning;
-          }
-          return next;
-        });
-        return;
-      }
-    };
+        };
 
     const sendChat = async () => {
       if (!chatInput.trim() || sending) return;
