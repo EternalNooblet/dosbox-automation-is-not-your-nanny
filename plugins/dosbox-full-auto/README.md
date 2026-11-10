@@ -33,8 +33,8 @@ server binary itself was rebuilt.
 
 Setup (`install`) fetches ONE native bundle — about 16.5 MB — for the current
 platform from the official GitHub Releases of the upstream project
-[EternalNooblet/dosbox-automation-is-not-your-nanny](https://github.com/EternalNooblet/dosbox-automation-is-not-your-nanny/releases)
-(tag `v1.0.2`), verifies its SHA256 against the pinned digest in
+[dosbox-automation-is-not-your-nanny](https://github.com/EternalNooblet/dosbox-automation-is-not-your-nanny/releases)
+(tag `v1.0.3`), verifies its SHA256 against the pinned digest in
 `src/install.py` (`PINNED_DIGESTS`, the digest GitHub publishes for the asset),
 and only then extracts and executes it. Unpinned release tags are refused —
 nothing installs unless its checksum is in the table. The bundle contains
