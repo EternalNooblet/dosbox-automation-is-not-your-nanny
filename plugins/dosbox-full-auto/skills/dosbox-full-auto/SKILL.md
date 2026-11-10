@@ -98,10 +98,11 @@ report. BLACK for 10 s = restart flow, remount, re-run, watch again.
 ## Decision API (visual verification)
 
 Full detail: references/decision-api.md. Only model: `vllm-sr/d3-ultra`.
-Key: `${VLLM_API_KEY}`, auto-generated via PoW on first use (or when dead),
-stored in Hermes secret scope, verified lazily with a 24 h plugin_db() cooldown.
-Batch all questions about one input into ONE request; respect 429 Retry-After
-with backoff + jitter; never send sensitive data (everything may be logged).
+Key: `${VLLM_API_KEY}`, managed automatically (created via PoW when missing/dead,
+stored in Hermes secret scope), verified lazily with a 24 h plugin_db() cooldown.
+Rate limits strictly respected: 5 keys/IP/hour, 20/day (12 min cooldown between
+creations). Batch all questions about one input into ONE request; respect 429
+Retry-After with backoff + jitter; never send sensitive data (everything may be logged).
 
 ## Conventions
 

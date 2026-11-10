@@ -1,6 +1,6 @@
 name: dosbox-full-auto
 version: "0.1.0"
-description: "All-in-one solution for controlling DOSBox apps with your agent. Self-contained DOSBox-automation with built-in MCP server, registers in Hermes and exposes 55 tools via the dosbox-full-auto skill such as vision based mouse movement, live process memory reading and more. VLLM API key auto-generated via PoW on first use."
+description: "All-in-one solution for controlling DOSBox apps with your agent. Self-contained DOSBox-automation with built-in MCP server, registers in Hermes and exposes 55 tools via the dosbox-full-auto skill such as vision based mouse movement, live process memory reading and more."
 author: papa
 kind: standalone
 platforms: [linux, windows]

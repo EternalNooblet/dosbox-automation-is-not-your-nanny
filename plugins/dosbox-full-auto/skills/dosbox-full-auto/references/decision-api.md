@@ -14,13 +14,13 @@ Key facts from `decision-vllm-skill`; load that installed skill for the full spe
 
 ## Auth
 
-Key format `sk-vsr-` + 43 chars. `Authorization: Bearer <key>` or `X-API-Key`.
+Key format `sk-vsr-` + 43 chars. `Authorization: Bearer *** or `X-API-Key`.
 Key shown once, only hash stored. Use `${VLLM_API_KEY}`; never hardcode, echo,
 or store key text. Verify liveness with `GET /api/keys/self` (status field).
 
-Key creation (PoW) exists server-side but is **never used from this machine**:
-the IP is flagged (terminal keys revoked minutes after creation; creation
-answers 429 key_creation_limited). Rotation only detects dead keys.
+Key creation (PoW) exists server-side. **Rate limits strictly enforced:**
+5 keys/IP/hour, 20/day. Creation requests respect 12 min cooldown and daily limit
+to avoid 429 key_creation_limited. Keys verified on creation via GET /api/keys/self.
 
 ## Request body
 

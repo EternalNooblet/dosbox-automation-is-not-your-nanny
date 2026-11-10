@@ -44,9 +44,9 @@ Nothing is bundled in the plugin repo itself — this is a setup-time fetch, not
 a shipped payload (Hermes catalog rule 17), disclosed here per rule 13:
 
 - Network: GitHub API + release asset download at install time; Decision API
-  (`decision.vllm-sr.ai`) for visual checks. **VLLM API key is auto-generated
-  via PoW on first use (or when dead) and stored in Hermes secret scope.**
-  Respects 5 keys/IP/hour rate limit (12 min cooldown).
+  (`decision.vllm-sr.ai`) for visual checks. **VLLM API key managed automatically
+  via Hermes secret scope.** Key creation via PoW respects strict rate limits:
+  5 keys/IP/hour, 20/day (12 min cooldown between creations).
 - Files: writes only under `<hermes home>/plugin-data/dosbox-full-auto/`
   (binaries, VERSION, plugin_db). No reads outside the plugin's own data and
   the one MCP config entry it registers via `hermes mcp add`.
@@ -68,5 +68,5 @@ launcher sets `LD_LIBRARY_PATH` from the bundle dir.
 ## Requirements
 
 - Linux x86_64 or Windows x86_64.
-- **No manual `VLLM_API_KEY` setup required** — auto-generated via PoW on first use and stored in Hermes secret scope.
+- **VLLM API key managed automatically** — created via PoW when needed, stored in Hermes secret scope. Strict rate limits: 5 keys/IP/hour, 20/day.
 - Ports: MCP on 8387 (the dev pair keeps 8386).

@@ -11,7 +11,8 @@ Hard rules:
   MCP server on demand; it spawns the emulator as its child).
 - Config writes only via the Hermes CLI (``hermes mcp add``), never a
   hand-edited config.yaml.
-- VLLM API key auto-generated via PoW on first use, stored in Hermes secret scope.
+- VLLM API key managed automatically (PoW when needed, stored in Hermes secret scope).
+  Rate limits: 5 keys/IP/hour, 20/day.
 """
 
 from __future__ import annotations
