@@ -1,0 +1,12 @@
+{
+  "name": "dosbox-full-auto",
+  "label": "DOSBox Video",
+  "description": "Live DOSBox video frame viewer",
+  "icon": "Monitor",
+  "version": "0.1.0",
+  "tab": {
+    "path": "/dosbox-full-auto",
+    "position": "after:skills"
+  },
+  "entry": "index.js"
+}
