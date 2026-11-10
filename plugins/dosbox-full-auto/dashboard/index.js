@@ -331,7 +331,7 @@
         ]),
 
         // Chat section (right)
-        h("div", { key: "chat", style: { width: "20vw", maxWidth: "20vw", minWidth: "20vw", flexShrink: 0, flexGrow: 0, overflow: "hidden" }, className: "flex flex-col gap-2 border-l pl-4 min-h-0" }, [
+        h("div", { key: "chat", style: { width: "20vw", maxWidth: "20vw", minWidth: "20vw", flexShrink: 0, flexGrow: 0, overflow: "hidden", maxHeight: "calc(100vh - 200px)" }, className: "flex flex-col gap-2 border-l pl-4 min-h-0" }, [
           h("div", { key: "scroll", className: "flex-1 min-h-0 pr-2 overflow-y-auto overflow-x-hidden" }, [
             messages.length === 0 ? h("div", {
               key: "empty",
