@@ -58,9 +58,8 @@
     }, [frameUrl]);
 
     const statusLabel = {
-      waiting: "Waiting for DOSBox webserver...",
-      "no-frame": "No frame yet (503) — is webserver enabled and DOSBox running?",
-      live: `Live — ${frameCount.current} frames`,
+      waiting: "Waiting for dosbox-full-auto webserver...",
+      "no-frame": "No frame yet (503) — is webserver enabled and dosbox-full-auto running?",
       error: "Error loading frame",
     }[status];
 
@@ -70,13 +69,7 @@
 
     return h(Card, { className: "h-full flex flex-col" }, [
       h(CardHeader, { key: "header" },
-        h(CardTitle, { className: "flex items-center gap-2" }, [
-          "DOSBox Video",
-          h("span", {
-            key: "badge",
-            className: "text-xs px-2 py-0.5 rounded " + (isLive ? "bg-green-900/50 text-green-400" : "bg-yellow-900/50 text-yellow-400")
-          }, isLive ? "LIVE" : "WAITING"),
-        ])
+        h(CardTitle, { className: "flex items-center gap-2" }, "dosbox-full-auto")
       ),
       h(CardContent, { key: "content", className: "flex-1 flex flex-col p-4 gap-4" }, [
         h("div", { key: "controls", className: "flex items-center gap-4 flex-wrap" }, [
@@ -123,7 +116,7 @@
           frameUrl && h("img", {
             key: "frame",
             src: frameUrl,
-            alt: "DOSBox frame",
+            alt: "dosbox-full-auto frame",
             style: {
               maxWidth: "100%",
               maxHeight: "100%",

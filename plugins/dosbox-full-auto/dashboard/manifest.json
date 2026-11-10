@@ -1,6 +1,6 @@
 {
   "name": "dosbox-full-auto",
-  "label": "DOSBox Video",
+  "label": "dosbox-full-auto",
   "description": "Live DOSBox video frame viewer",
   "icon": "Monitor",
   "version": "0.1.0",
