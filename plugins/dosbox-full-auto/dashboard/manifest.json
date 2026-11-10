@@ -8,5 +8,6 @@
     "path": "/dosbox-full-auto",
     "position": "after:skills"
   },
-  "entry": "index.js"
+  "entry": "index.js",
+  "api": "plugin_api.py"
 }
