@@ -29,7 +29,7 @@ MCP config shape (tested, only via `hermes mcp add` — never hand-edit):
 ```yaml
 mcp_servers:
   dosbox-full-auto:
-    command: <bundle>/dosbox-mcp
+    command: <bundle>/dosbox-full-auto-mcp
     args: [--dosbox-bin <bundle>/dosbox-automation,
            --working-dir <bundle>,           # required: resources resolve from cwd
            --base-url http://localhost:8387,  # keeps the dev pair on 8386 separate
@@ -48,8 +48,8 @@ no memory access outside MCP tools. Read-only OS checks (`ps`, ports) allowed.
 
 ## Rule #2 — fix the server, never work around it
 
-A missing capability or failing call is a bug in dosbox-mcp: fix and rebuild
-it (`cargo build --release` in `tools/dosbox-mcp`), never substitute a
+A missing capability or failing call is a bug in dosbox-full-auto-mcp: fix and rebuild
+it (`cargo build --release` in `tools/dosbox-full-auto-mcp`), never substitute a
 direct-API workaround.
 
 ## Wait discipline

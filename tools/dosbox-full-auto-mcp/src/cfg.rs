@@ -83,13 +83,13 @@ impl McpConfig {
                 builder = builder.add_source(File::from(path).required(false));
             }
         } else if let Some(config_dir) = dirs::config_dir() {
-            let default_path = config_dir.join("dosbox-mcp").join("config.toml");
+            let default_path = config_dir.join("dosbox-full-auto-mcp").join("config.toml");
             if default_path.exists() {
                 builder = builder.add_source(File::from(default_path).required(false));
             }
         }
 
-        builder = builder.add_source(Environment::with_prefix("DOSBOX_MCP").separator("_"));
+        builder = builder.add_source(Environment::with_prefix("DOSBOX_FULL_AUTO_MCP").separator("_"));
 
         let config: Self = builder.build()?.try_deserialize()?;
         Ok(config)

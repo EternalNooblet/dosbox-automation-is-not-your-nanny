@@ -3,7 +3,7 @@ This file is part of the dosbox-automation-is-not-your-nanny fork
 License: GPL-2.0-or-later. This file is original work of the fork. Contact: EternalNooblet <67196335+EternalNooblet@users.noreply.github.com>.
 -->
 
-# dosbox-mcp Workflow Examples
+# dosbox-full-auto-mcp Workflow Examples
 
 Common workflows for game automation, testing, debugging, and scripting.
 
@@ -21,7 +21,7 @@ Common workflows for game automation, testing, debugging, and scripting.
 sequenceDiagram
     participant User
     participant AI
-    participant MCP as dosbox-mcp
+    participant MCP as dosbox-full-auto-mcp
     participant DOSBox
 
     User->>AI: "Install DOOM from CD"
@@ -371,10 +371,10 @@ Useful for:
 
 All workflows documented as MCP Resources:
 ```json
-{ "method": "resources/read", "params": { "uri": "docs://dosbox-mcp/workflows" } }
+{ "method": "resources/read", "params": { "uri": "docs://dosbox-full-auto-mcp/workflows" } }
 ```
 
 Individual tool reference:
 ```json
-{ "method": "resources/read", "params": { "uri": "docs://dosbox-mcp/tool/search_memory" } }
+{ "method": "resources/read", "params": { "uri": "docs://dosbox-full-auto-mcp/tool/search_memory" } }
 ```

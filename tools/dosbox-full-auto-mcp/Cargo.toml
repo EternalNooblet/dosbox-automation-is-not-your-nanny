@@ -2,7 +2,7 @@
 # License: GPL-2.0-or-later. This file is original work of the fork. Contact: EternalNooblet <67196335+EternalNooblet@users.noreply.github.com>.
 
 [package]
-name = "dosbox-mcp"
+name = "dosbox-full-auto-mcp"
 version = "0.1.0"
 edition = "2021"
 description = "MCP server for dosbox-automation REST API"
@@ -29,5 +29,5 @@ urlencoding = "2.1"
 which = "6.0"
 
 [[bin]]
-name = "dosbox-mcp"
+name = "dosbox-full-auto-mcp"
 path = "src/main.rs"

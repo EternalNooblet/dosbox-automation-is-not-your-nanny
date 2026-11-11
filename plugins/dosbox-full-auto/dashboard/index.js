@@ -245,7 +245,7 @@
 
         setTimeout(scrollToBottom, 0);
 
-        const prefix = "load and use all dosbox-full-auto. use only the dosbox-mcp commands to interact with dos apps. ";
+        const prefix = "load and use all dosbox-full-auto. use only the dosbox-full-auto-mcp commands to interact with dos apps. ";
         const enhancedMessage = prefix + message;
 
         const submitId = ++requestIdRef.current;

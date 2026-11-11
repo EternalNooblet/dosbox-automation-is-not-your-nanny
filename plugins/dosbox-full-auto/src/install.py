@@ -162,7 +162,7 @@ def _verify_bundle(root: Path) -> list[str]:
     """Missing-piece list; empty = usable bundle. Loose binaries are not usable."""
     import sys
     missing = []
-    for name in ("dosbox-mcp", "dosbox-automation"):
+    for name in ("dosbox-full-auto-mcp", "dosbox-automation"):
         p = root / name
         if sys.platform.startswith("win"):
             p = p.with_suffix(".exe")
@@ -230,7 +230,7 @@ def install(tag: str | None = None, reinstall: bool = False) -> str:
         tar_path.unlink(missing_ok=True)
     except Exception as exc:
         return f"install failed — download/extract failed: {exc}"
-    for name in ("dosbox-mcp", "dosbox-automation"):
+    for name in ("dosbox-full-auto-mcp", "dosbox-automation"):
         try:
             os.chmod(root / name, 0o755)
         except OSError:
@@ -252,7 +252,7 @@ def register_mcp_server(root: Path) -> str:
     piped run without the answer is cancelled and saves nothing. `--args`
     must be last: it consumes everything after it."""
     import sys
-    mcp_bin = root / "dosbox-mcp"
+    mcp_bin = root / "dosbox-full-auto-mcp"
     emu_bin = root / "dosbox-automation"
     if sys.platform.startswith("win"):
         mcp_bin = mcp_bin.with_suffix(".exe")

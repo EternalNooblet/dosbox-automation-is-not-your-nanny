@@ -3,9 +3,9 @@ This file is part of the dosbox-automation-is-not-your-nanny fork
 License: GPL-2.0-or-later. This file is original work of the fork. Contact: EternalNooblet <67196335+EternalNooblet@users.noreply.github.com>.
 -->
 
-# dosbox-mcp AI Setup Document
+# dosbox-full-auto-mcp AI Setup Document
 
-This document enables an AI agent to install and configure `dosbox-mcp` (MCP server for dosbox-automation) from scratch on a fresh Linux machine.
+This document enables an AI agent to install and configure `dosbox-full-auto-mcp` (MCP server for dosbox-automation) from scratch on a fresh Linux machine.
 
 ---
 
@@ -77,14 +77,14 @@ cmake --build build/release-linux -- -j$(nproc)
 
 ---
 
-## 4. Build dosbox-mcp (Rust)
+## 4. Build dosbox-full-auto-mcp (Rust)
 
 ```bash
-cd tools/dosbox-mcp
+cd tools/dosbox-full-auto-mcp
 cargo build --release
 ```
 
-**Binary location**: `tools/dosbox-mcp/target/release/dosbox-mcp`
+**Binary location**: `tools/dosbox-full-auto-mcp/target/release/dosbox-full-auto-mcp`
 
 ---
 
@@ -110,12 +110,12 @@ EOF
 
 ---
 
-## 6. Configure dosbox-mcp (Optional)
+## 6. Configure dosbox-full-auto-mcp (Optional)
 
-Create `~/.config/dosbox-mcp/config.toml`:
+Create `~/.config/dosbox-full-auto-mcp/config.toml`:
 ```bash
-mkdir -p ~/.config/dosbox-mcp
-cat > ~/.config/dosbox-mcp/config.toml << 'EOF'
+mkdir -p ~/.config/dosbox-full-auto-mcp
+cat > ~/.config/dosbox-full-auto-mcp/config.toml << 'EOF'
 [default]
 base_url = "http://localhost:8386"
 timeout_secs = 30
@@ -142,17 +142,17 @@ Xvfb :99 -screen 0 1024x768x24 &
 
 ---
 
-## 8. Run dosbox-mcp
+## 8. Run dosbox-full-auto-mcp
 
 Run it with zero arguments — auto-start handles everything:
 
 ```bash
 # From the repo root (text mode; binary found in ./build/release-linux/,
 # libiir LD_LIBRARY_PATH set for the child automatically):
-/home/papa/dosbox-automation-is-not-your-nanny/tools/dosbox-mcp/target/release/dosbox-mcp
+/home/papa/dosbox-automation-is-not-your-nanny/tools/dosbox-full-auto-mcp/target/release/dosbox-full-auto-mcp
 ```
 
-For graphical DOS apps, start Xvfb and set `display = ":99"` in `~/.config/dosbox-mcp/config.toml` (section 6) — no CLI flags needed.
+For graphical DOS apps, start Xvfb and set `display = ":99"` in `~/.config/dosbox-full-auto-mcp/config.toml` (section 6) — no CLI flags needed.
 
 The server also attaches to an already-running instance at its `base_url`, so launching a second server is never required for a second agent.
 
@@ -164,8 +164,8 @@ Add to Hermes MCP config (e.g., `~/.hermes/mcp_servers.json`) with no arguments:
 ```json
 {
   "mcpServers": {
-    "dosbox-mcp": {
-      "command": "/home/papa/dosbox-automation-is-not-your-nanny/tools/dosbox-mcp/target/release/dosbox-mcp",
+    "dosbox-full-auto-mcp": {
+      "command": "/home/papa/dosbox-automation-is-not-your-nanny/tools/dosbox-full-auto-mcp/target/release/dosbox-full-auto-mcp",
       "args": []
     }
   }
@@ -185,7 +185,7 @@ ln -s /home/papa/dosbox-automation-is-not-your-nanny/build/release-linux/dosbox-
 ### MCP Tools Available (55 total)
 ```bash
 # List tools via MCP
-# Resources: docs://dosbox-mcp/api-reference
+# Resources: docs://dosbox-full-auto-mcp/api-reference
 # Prompts: install-game, memory-trainer, automated-test, lua-script
 ```
 
@@ -215,7 +215,7 @@ Should return the MOUNT result line in `screen_text`.
 |-------|-----|
 | `dosbox-automation binary not found` | No binary in the searched locations (`./build/release-linux/`, `/usr/local/bin/`, `/usr/bin/`, `~/.local/bin/`, `PATH`) — build it or install/symlink it there. Flags and env vars are not the fix. |
 | `Connection refused` | Port 8386 is owned by another process, or boot is still in progress (`lsof -i :8386`) |
-| Black frames in graphics apps | Start Xvfb `:99`, set `display = ":99"` in `~/.config/dosbox-mcp/config.toml` |
+| Black frames in graphics apps | Start Xvfb `:99`, set `display = ":99"` in `~/.config/dosbox-full-auto-mcp/config.toml` |
 | 3DS slow start or black screen | Pin both rates: launcher sets `cpu_cycles_protected` alongside `cpu_cycles` (30000); unprotected pmode defaults to 60000 and slows DOS-extender apps |
 | MOUNT blocked | Path is a system path / symlink to one, or does not exist; ensure `--secure-mode` is off |
 | `libiir.so not found` | Launcher auto-detects libiir relative to the binary (following symlinks) and sets `LD_LIBRARY_PATH` for the child; only a system install with libs elsewhere needs manual handling |
@@ -230,11 +230,11 @@ Should return the MOUNT result line in `screen_text`.
 | `DOSBOX_API_URL` | API base URL |
 | `DOSBOX_CPU_CYCLES` | CPU cycles (e.g., "30000") |
 | `DOSBOX_DISPLAY` | X11 display (e.g., ":99") |
-| `DOSBOX_MCP_BASE_URL` | Config override |
-| `DOSBOX_MCP_CPU_CYCLES` | Config override |
-| `DOSBOX_MCP_DISPLAY` | Config override |
-| `DOSBOX_MCP_SECURE_MODE` | Config override |
-| `DOSBOX_MCP_TIMEOUT_SECS` | Config override |
+| `DOSBOX_FULL_AUTO_MCP_BASE_URL` | Config override |
+| `DOSBOX_FULL_AUTO_MCP_CPU_CYCLES` | Config override |
+| `DOSBOX_FULL_AUTO_MCP_DISPLAY` | Config override |
+| `DOSBOX_FULL_AUTO_MCP_SECURE_MODE` | Config override |
+| `DOSBOX_FULL_AUTO_MCP_TIMEOUT_SECS` | Config override |
 
 ---
 
@@ -243,9 +243,9 @@ Should return the MOUNT result line in `screen_text`.
 | Component | Path (relative to repo root) |
 |-----------|------|
 | dosbox-automation binary | `build/release-linux/dosbox-automation` |
-| dosbox-mcp binary | `tools/dosbox-mcp/target/release/dosbox-mcp` |
+| dosbox-full-auto-mcp binary | `tools/dosbox-full-auto-mcp/target/release/dosbox-full-auto-mcp` |
 | Primary mount config | `~/.config/dosbox-automation/dosbox-automation.conf` |
-| dosbox-mcp config | `~/.config/dosbox-mcp/config.toml` |
+| dosbox-full-auto-mcp config | `~/.config/dosbox-full-auto-mcp/config.toml` |
 | Xvfb display | `:99` (if used) |
 | MCP server URL | `http://localhost:8386` |
 
@@ -257,15 +257,15 @@ Should return the MOUNT result line in `screen_text`.
 cd dosbox-automation-is-not-your-nanny && \
 cmake --preset release-linux -DOPT_FETCH_DEPS=ON && \
 cmake --build build/release-linux -- -j$(nproc) && \
-cd tools/dosbox-mcp && cargo build --release && \
+cd tools/dosbox-full-auto-mcp && cargo build --release && \
 mkdir -p ~/.config/dosbox-automation && \
 echo -e "[cpu]\ncpu_cycles = 30000\ncpu_cycles_protected = 30000" > ~/.config/dosbox-automation/dosbox-automation.conf && \
-mkdir -p ~/.config/dosbox-mcp && \
-echo -e '[default]\nbase_url = "http://localhost:8386"\ndisplay = ":99"\ncpu_cycles = "30000"' > ~/.config/dosbox-mcp/config.toml
+mkdir -p ~/.config/dosbox-full-auto-mcp && \
+echo -e '[default]\nbase_url = "http://localhost:8386"\ndisplay = ":99"\ncpu_cycles = "30000"' > ~/.config/dosbox-full-auto-mcp/config.toml
 ```
 
 Then start Xvfb and run (from the repo root):
 ```bash
 cd ../.. && Xvfb :99 -screen 0 1024x768x24 &
-"$PWD/tools/dosbox-mcp/target/release/dosbox-mcp"
+"$PWD/tools/dosbox-full-auto-mcp/target/release/dosbox-full-auto-mcp"
 ```

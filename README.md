@@ -18,7 +18,7 @@ here. What this fork changes is documented below.
 
 ## Fork deltas — vs upstream dosbox-automation
 
-- `tools/dosbox-mcp`: new 55-tool Rust MCP server (auto-starts the emulator, pins cycles).
+- `tools/dosbox-full-auto-mcp`: new 55-tool Rust MCP server (auto-starts the emulator, pins cycles).
 - Webserver: token-free, no Host validation, bound to `0.0.0.0`, closes connections after each answer.
 - Pause/resume API at an instruction boundary; bridge drains every loop pass.
 - Memory API: page-guarded, dispatch-free host reads, guest-linear (bit-31) CR3 walk, `pagemap` endpoint.
@@ -28,5 +28,5 @@ here. What this fork changes is documented below.
 - Mount policy: whitelist removed (any existing dir mounts, system paths still refused); mount lock unlockable.
 - Lua script load accepts JSON; `free_memory`/`allocate_memory` return JSON instead of an empty body.
 - Headless launcher: repo-relative binary search, auto `libiir.so`, offscreen SDL, MT32EMU off, attaches to running instance.
-- Docs: `AI_SETUP.md` (CachyOS/Arch) and `tools/dosbox-mcp/docs/`.
+- Docs: `AI_SETUP.md` (CachyOS/Arch) and `tools/dosbox-full-auto-mcp/docs/`.
 - Core emulation unchanged from upstream.

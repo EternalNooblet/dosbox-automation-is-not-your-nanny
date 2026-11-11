@@ -156,7 +156,7 @@ fn to_mcp_error_ctx(endpoint: &str, err: McpError) -> McpErrorInternal {
 
 /// MCP server for dosbox-automation
 #[derive(Clone)]
-pub struct DosBoxMcpServer {
+pub struct DosBoxFullAutoMcpServer {
     client: Arc<DosBoxClient>,
     tool_router: ToolRouter<Self>,
     /// Serializes input-injection bursts; the emulator rejects a new burst
@@ -164,7 +164,7 @@ pub struct DosBoxMcpServer {
     input_gate: Arc<AsyncMutex<()>>,
 }
 
-impl DosBoxMcpServer {
+impl DosBoxFullAutoMcpServer {
     pub fn new(client: Arc<DosBoxClient>) -> Self {
         Self {
             client,
@@ -420,7 +420,7 @@ pub fn check_mount_line(line: String, root: PathBuf, windows: bool) -> Option<St
 }
 
 #[tool_router]
-impl DosBoxMcpServer {
+impl DosBoxFullAutoMcpServer {
     // ============ Status Tools ============
 
     #[tool(description = "Get current DOSBox status including program state and CPU info. is_booted is normalized: true once the DOS shell is up (the emulator's raw flag only tracks the BOOT command).")]
@@ -1290,16 +1290,16 @@ fn doc_resource_template(uri_template: &str, name: &str, description: &str) -> R
 }
 
 #[tool_handler]
-impl ServerHandler for DosBoxMcpServer {
+impl ServerHandler for DosBoxFullAutoMcpServer {
     fn get_info(&self) -> ServerInfo {
         ServerInfo {
             instructions: Some(
                 "MCP server for dosbox-automation REST API. Provides tools for controlling DOSBox instances including input injection, memory access, video capture, drive management, and Lua scripting.\n\n\
                 **Documentation Resources** (read via `resources/read`):\n\
-                - `docs://dosbox-mcp/api-reference` — Complete API reference for all 55 tools\n\
-                - `docs://dosbox-mcp/configuration` — Server configuration guide\n\
-                - `docs://dosbox-mcp/workflows` — Common workflow examples (game install, memory trainer, testing)\n\
-                - `docs://dosbox-mcp/quickstart` — Quick start guide\n\n\
+                - `docs://dosbox-full-auto-mcp/api-reference` — Complete API reference for all 55 tools\n\
+                - `docs://dosbox-full-auto-mcp/configuration` — Server configuration guide\n\
+                - `docs://dosbox-full-auto-mcp/workflows` — Common workflow examples (game install, memory trainer, testing)\n\
+                - `docs://dosbox-full-auto-mcp/quickstart` — Quick start guide\n\n\
                 **Prompts** (invoke via `prompts/get`):\n\
                 - `install-game` — Step-by-step game installation from CD/ISO\n\
                 - `memory-trainer` — Find and freeze memory values (lives, ammo, etc.)\n\
@@ -1323,25 +1323,25 @@ impl ServerHandler for DosBoxMcpServer {
     ) -> impl Future<Output = Result<ListResourcesResult, McpErrorInternal>> + Send + '_ {
         let resources = vec![
             doc_resource(
-                "docs://dosbox-mcp/api-reference",
+                "docs://dosbox-full-auto-mcp/api-reference",
                 "API Reference",
                 "Complete API reference for all 45 MCP tools with parameters, examples, and error codes",
                 API_REFERENCE_MD,
             ),
             doc_resource(
-                "docs://dosbox-mcp/configuration",
+                "docs://dosbox-full-auto-mcp/configuration",
                 "Configuration Guide",
                 "Server configuration: config file, CLI options, environment variables, multi-instance setup",
                 CONFIG_GUIDE_MD,
             ),
             doc_resource(
-                "docs://dosbox-mcp/workflows",
+                "docs://dosbox-full-auto-mcp/workflows",
                 "Workflow Examples",
                 "Common workflows: game installation, memory trainer, automated testing, Lua scripting",
                 WORKFLOWS_MD,
             ),
             doc_resource(
-                "docs://dosbox-mcp/quickstart",
+                "docs://dosbox-full-auto-mcp/quickstart",
                 "Quick Start Guide",
                 "Get running in 3 steps: install, configure MCP client, start server",
                 QUICKSTART_MD,
@@ -1360,7 +1360,7 @@ impl ServerHandler for DosBoxMcpServer {
     ) -> impl Future<Output = Result<ListResourceTemplatesResult, McpErrorInternal>> + Send + '_ {
         let templates = vec![
             doc_resource_template(
-                "docs://dosbox-mcp/tool/{tool_name}",
+                "docs://dosbox-full-auto-mcp/tool/{tool_name}",
                 "Individual Tool Reference",
                 "Get detailed reference for a specific tool by name (e.g., 'type_text', 'read_memory')",
             ),
@@ -1378,12 +1378,12 @@ impl ServerHandler for DosBoxMcpServer {
     ) -> impl Future<Output = Result<ReadResourceResult, McpErrorInternal>> + Send + '_ {
         let uri = request.uri.as_str();
         let contents = match uri {
-            "docs://dosbox-mcp/api-reference" => ResourceContents::text(API_REFERENCE_MD, uri),
-            "docs://dosbox-mcp/configuration" => ResourceContents::text(CONFIG_GUIDE_MD, uri),
-            "docs://dosbox-mcp/workflows" => ResourceContents::text(WORKFLOWS_MD, uri),
-            "docs://dosbox-mcp/quickstart" => ResourceContents::text(QUICKSTART_MD, uri),
-            uri if uri.starts_with("docs://dosbox-mcp/tool/") => {
-                let tool_name = uri.strip_prefix("docs://dosbox-mcp/tool/").unwrap_or("");
+            "docs://dosbox-full-auto-mcp/api-reference" => ResourceContents::text(API_REFERENCE_MD, uri),
+            "docs://dosbox-full-auto-mcp/configuration" => ResourceContents::text(CONFIG_GUIDE_MD, uri),
+            "docs://dosbox-full-auto-mcp/workflows" => ResourceContents::text(WORKFLOWS_MD, uri),
+            "docs://dosbox-full-auto-mcp/quickstart" => ResourceContents::text(QUICKSTART_MD, uri),
+            uri if uri.starts_with("docs://dosbox-full-auto-mcp/tool/") => {
+                let tool_name = uri.strip_prefix("docs://dosbox-full-auto-mcp/tool/").unwrap_or("");
                 let content = self.get_tool_doc(tool_name);
                 ResourceContents::text(content, uri)
             }
@@ -1468,7 +1468,7 @@ impl ServerHandler for DosBoxMcpServer {
     }
 }
 
-impl DosBoxMcpServer {
+impl DosBoxFullAutoMcpServer {
     /// Get documentation for a specific tool by name
     fn get_tool_doc(&self, tool_name: &str) -> String {
         match tool_name {
@@ -2019,7 +2019,7 @@ Get DOS internals (MCB map, etc.).
 
         let messages = vec![
             PromptMessage::new_text(PromptMessageRole::User, format!(
-                "Install a DOS game from CD/ISO using the dosbox-mcp tools.\n\n\
+                "Install a DOS game from CD/ISO using the dosbox-full-auto-mcp tools.\n\n\
                 **Steps:**\n\
                 1. Mount the disk image to drive {}\n\
                 2. Run the installer\n\

@@ -193,7 +193,7 @@ impl DosBoxClient {
 }
 
 /// Root that confines mount_drive host paths: the owner-configured root
-/// (config file / DOSBOX_MCP_MOUNT_ROOT / --mount-root) if present,
+/// (config file / DOSBOX_FULL_AUTO_MCP_MOUNT_ROOT / --mount-root) if present,
 /// otherwise the plugin data directory. Canonicalized once here so the
 /// per-call check only resolves the candidate.
 pub fn effective_mount_root(configured: Option<PathBuf>) -> PathBuf {

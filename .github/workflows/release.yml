@@ -39,9 +39,9 @@ jobs:
             xvfb x11-utils \
             curl
 
-      - name: Build dosbox-mcp (Rust)
+      - name: Build dosbox-full-auto-mcp (Rust)
         run: |
-          cd tools/dosbox-mcp
+          cd tools/dosbox-full-auto-mcp
           cargo build --release
 
       - name: Build dosbox-automation (CMake)
@@ -52,7 +52,7 @@ jobs:
       - name: Stage self-contained bundle
         run: |
           mkdir -p dosbox-full-auto-linux-x86_64/_deps/iir1-build
-          cp tools/dosbox-mcp/target/release/dosbox-mcp dosbox-full-auto-linux-x86_64/dosbox-mcp
+          cp tools/dosbox-full-auto-mcp/target/release/dosbox-full-auto-mcp dosbox-full-auto-linux-x86_64/dosbox-full-auto-mcp
           cp build/release-linux/dosbox-automation dosbox-full-auto-linux-x86_64/dosbox-automation
           cp -a build/release-linux/resources dosbox-full-auto-linux-x86_64/resources
           cp -a build/release-linux/_deps/iir1-build/libiir.so* dosbox-full-auto-linux-x86_64/_deps/iir1-build/
@@ -90,11 +90,11 @@ jobs:
           C:/vcpkg/bootstrap-vcpkg.bat
           echo "VCPKG_ROOT=C:/vcpkg" >> $env:GITHUB_ENV
 
-      - name: Build dosbox-mcp (Rust)
+      - name: Build dosbox-full-auto-mcp (Rust)
         run: |
-          cd tools/dosbox-mcp
+          cd tools/dosbox-full-auto-mcp
           cargo build --release
-          Copy-Item target/release/dosbox-mcp.exe ../../dosbox-mcp-windows-x86_64.exe
+          Copy-Item target/release/dosbox-full-auto-mcp.exe ../../dosbox-full-auto-mcp-windows-x86_64.exe
 
       - name: Build dosbox-automation (CMake)
         shell: pwsh
@@ -107,8 +107,8 @@ jobs:
         shell: pwsh
         run: |
           if (-not (Test-Path dosbox-automation-windows-x86_64.exe)) { throw "dosbox-automation.exe missing" }
-          if (-not (Test-Path dosbox-mcp-windows-x86_64.exe)) { throw "dosbox-mcp.exe missing" }
-          Get-ChildItem dosbox-automation-windows-x86_64.exe, dosbox-mcp-windows-x86_64.exe | Select-Object Name,Length
+          if (-not (Test-Path dosbox-full-auto-mcp-windows-x86_64.exe)) { throw "dosbox-full-auto-mcp.exe missing" }
+          Get-ChildItem dosbox-automation-windows-x86_64.exe, dosbox-full-auto-mcp-windows-x86_64.exe | Select-Object Name,Length
           Get-ChildItem -Recurse build/release-windows/_deps/iir1-build -ErrorAction SilentlyContinue | Select-Object FullName,Length
           Get-ChildItem build/release-windows/Resources -ErrorAction SilentlyContinue | Select-Object -First 5 Name
 
@@ -116,7 +116,7 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path dosbox-full-auto-windows-x86_64/_deps/iir1-build | Out-Null
-          Copy-Item dosbox-mcp-windows-x86_64.exe dosbox-full-auto-windows-x86_64/dosbox-mcp.exe
+          Copy-Item dosbox-full-auto-mcp-windows-x86_64.exe dosbox-full-auto-windows-x86_64/dosbox-full-auto-mcp.exe
           Copy-Item dosbox-automation-windows-x86_64.exe dosbox-full-auto-windows-x86_64/dosbox-automation.exe
           Copy-Item -Recurse build/release-windows/Resources dosbox-full-auto-windows-x86_64/Resources
           $iirDlls = Get-ChildItem -Recurse build/release-windows/_deps/iir1-build -Filter *.dll -ErrorAction SilentlyContinue
@@ -154,11 +154,11 @@ jobs:
         run: |
           brew install cmake ninja pkg-config sdl2 sdl2_net opus fluidsynth libpng libarchive vcpkg || true
 
-      - name: Build dosbox-mcp (Rust)
+      - name: Build dosbox-full-auto-mcp (Rust)
         run: |
-          cd tools/dosbox-mcp
+          cd tools/dosbox-full-auto-mcp
           cargo build --release
-          cp target/release/dosbox-mcp ../../dosbox-mcp-macos-x86_64
+          cp target/release/dosbox-full-auto-mcp ../../dosbox-full-auto-mcp-macos-x86_64
 
       - name: Build dosbox-automation (CMake)
         run: |
@@ -171,7 +171,7 @@ jobs:
         with:
           name: macos-x86_64
           path: |
-            dosbox-mcp-macos-x86_64
+            dosbox-full-auto-mcp-macos-x86_64
             dosbox-automation-macos-x86_64
 
   build-macos-arm64:
@@ -192,11 +192,11 @@ jobs:
         run: |
           brew install cmake ninja pkg-config sdl2 sdl2_net opus fluidsynth libpng libarchive vcpkg || true
 
-      - name: Build dosbox-mcp (Rust)
+      - name: Build dosbox-full-auto-mcp (Rust)
         run: |
-          cd tools/dosbox-mcp
+          cd tools/dosbox-full-auto-mcp
           cargo build --release --target aarch64-apple-darwin
-          cp target/aarch64-apple-darwin/release/dosbox-mcp ../../dosbox-mcp-macos-arm64
+          cp target/aarch64-apple-darwin/release/dosbox-full-auto-mcp ../../dosbox-full-auto-mcp-macos-arm64
 
       - name: Build dosbox-automation (CMake)
         run: |
@@ -209,7 +209,7 @@ jobs:
         with:
           name: macos-arm64
           path: |
-            dosbox-mcp-macos-arm64
+            dosbox-full-auto-mcp-macos-arm64
             dosbox-automation-macos-arm64
 
   release:

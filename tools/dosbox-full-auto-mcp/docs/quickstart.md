@@ -3,7 +3,7 @@ This file is part of the dosbox-automation-is-not-your-nanny fork
 License: GPL-2.0-or-later. This file is original work of the fork. Contact: EternalNooblet <67196335+EternalNooblet@users.noreply.github.com>.
 -->
 
-# dosbox-mcp Quick Start Guide
+# dosbox-full-auto-mcp Quick Start Guide
 
 Get running in 3 steps.
 
@@ -20,11 +20,11 @@ Get running in 3 steps.
 
 ```bash
 git clone https://github.com/EternalNooblet/dosbox-automation-is-not-your-nanny
-cd dosbox-automation-is-not-your-nanny/tools/dosbox-mcp
+cd dosbox-automation-is-not-your-nanny/tools/dosbox-full-auto-mcp
 cargo build --release
 ```
 
-Binary: `target/release/dosbox-mcp`
+Binary: `target/release/dosbox-full-auto-mcp`
 
 ---
 
@@ -36,7 +36,7 @@ Binary: `target/release/dosbox-mcp`
 {
   "mcpServers": {
     "dosbox": {
-      "command": "/full/path/to/dosbox-mcp",
+      "command": "/full/path/to/dosbox-full-auto-mcp",
       "args": []
     }
   }
@@ -54,7 +54,7 @@ Binary: `target/release/dosbox-mcp`
 {
   "mcpServers": {
     "dosbox": {
-      "command": "/full/path/to/dosbox-mcp",
+      "command": "/full/path/to/dosbox-full-auto-mcp",
       "args": []
     }
   }
@@ -66,18 +66,18 @@ Binary: `target/release/dosbox-mcp`
 ```yaml
 mcpServers:
   dosbox:
-    command: "/full/path/to/dosbox-mcp"
+    command: "/full/path/to/dosbox-full-auto-mcp"
     args: []
 ```
 
-Pass no arguments. The server reads `~/.config/dosbox-mcp/config.toml` on its own and everything else has sensible defaults.
+Pass no arguments. The server reads `~/.config/dosbox-full-auto-mcp/config.toml` on its own and everything else has sensible defaults.
 
 ---
 
 ## Step 3: Start the Server
 
 ```bash
-dosbox-mcp
+dosbox-full-auto-mcp
 ```
 
 That single command is the whole startup. With zero arguments the server:
@@ -132,15 +132,15 @@ No binary exists in any searched location. Build dosbox-automation from source (
 Another process owns port 8386, or the emulator is still booting. Check what holds the port (`lsof -i :8386`); if an instance is already running, the server attaches to it instead of starting a new one.
 
 ### Black frames in graphics-mode apps
-Text mode works with zero arguments. Graphical DOS apps need a real X11 display: start `Xvfb :99` and set `display = ":99"` in `~/.config/dosbox-mcp/config.toml`.
+Text mode works with zero arguments. Graphical DOS apps need a real X11 display: start `Xvfb :99` and set `display = ":99"` in `~/.config/dosbox-full-auto-mcp/config.toml`.
 
 ---
 
 ## Next Steps
 
-- **Read the full API reference**: `docs://dosbox-mcp/api-reference`
-- **See workflow examples**: `docs://dosbox-mcp/workflows`
-- **Configure multi-instance**: `docs://dosbox-mcp/configuration`
+- **Read the full API reference**: `docs://dosbox-full-auto-mcp/api-reference`
+- **See workflow examples**: `docs://dosbox-full-auto-mcp/workflows`
+- **Configure multi-instance**: `docs://dosbox-full-auto-mcp/configuration`
 - **Use prompt templates**: `prompts/get` with `install-game`, `memory-trainer`, etc.
 
 ---
@@ -149,13 +149,13 @@ Text mode works with zero arguments. Graphical DOS apps need a real X11 display:
 
 ```json
 # Quickstart
-{ "method": "resources/read", "params": { "uri": "docs://dosbox-mcp/quickstart" } }
+{ "method": "resources/read", "params": { "uri": "docs://dosbox-full-auto-mcp/quickstart" } }
 
 # Full API reference
-{ "method": "resources/read", "params": { "uri": "docs://dosbox-mcp/api-reference" } }
+{ "method": "resources/read", "params": { "uri": "docs://dosbox-full-auto-mcp/api-reference" } }
 
 # Individual tool
-{ "method": "resources/read", "params": { "uri": "docs://dosbox-mcp/tool/type_text" } }
+{ "method": "resources/read", "params": { "uri": "docs://dosbox-full-auto-mcp/tool/type_text" } }
 
 # Prompt for game install
 { "method": "prompts/get", "params": { "name": "install-game", "arguments": { "drive": "D", "image_path": "/path/to/game.iso" } } }

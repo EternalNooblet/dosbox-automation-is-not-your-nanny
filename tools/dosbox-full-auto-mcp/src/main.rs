@@ -19,11 +19,11 @@ mod server;
 mod types;
 
 use crate::cfg::McpConfig;
-use crate::server::DosBoxMcpServer;
+use crate::server::DosBoxFullAutoMcpServer;
 use crate::dosbox_launcher::DosBoxLauncher;
 
 #[derive(Parser, Debug, Clone)]
-#[command(name = "dosbox-mcp", version, about = "MCP server for dosbox-automation REST API")]
+#[command(name = "dosbox-full-auto-mcp", version, about = "MCP server for dosbox-automation REST API")]
 struct Args {
     /// Base URL of dosbox-automation API (e.g., http://localhost:8386)
     #[arg(long, env = "DOSBOX_API_URL")]
@@ -37,7 +37,7 @@ struct Args {
     #[arg(long)]
     no_verify_tls: bool,
 
-    /// Config file path (default: ~/.config/dosbox-mcp/config.toml)
+    /// Config file path (default: ~/.config/dosbox-full-auto-mcp/config.toml)
     #[arg(long)]
     config: Option<PathBuf>,
 
@@ -80,7 +80,7 @@ struct Args {
     /// Root that mount_drive host paths must resolve under after dot-dots
     /// and symlinks. Default when unset: the plugin data directory
     /// (<HERMES_HOME or HOME/.hermes>/plugin-data/dosbox-full-auto).
-    #[arg(long, env = "DOSBOX_MCP_MOUNT_ROOT")]
+    #[arg(long, env = "DOSBOX_FULL_AUTO_MCP_MOUNT_ROOT")]
     mount_root: Option<PathBuf>,
 }
 
@@ -98,7 +98,7 @@ async fn main() -> Result<()> {
     // log line there corrupts JSON-RPC framing for the client.
     fmt().with_env_filter(filter).with_writer(std::io::stderr).init();
 
-    info!("Starting dosbox-mcp server");
+    info!("Starting dosbox-full-auto-mcp server");
 
     // Load configuration
     let config = load_config(args.clone())?;
@@ -139,7 +139,7 @@ async fn main() -> Result<()> {
     })?);
 
     // Create and run the MCP server with stdio transport
-    let server = DosBoxMcpServer::new(client);
+    let server = DosBoxFullAutoMcpServer::new(client);
     let service = server.serve(stdio()).await?;
 
     // Wait for the server to finish
@@ -159,7 +159,7 @@ fn load_config(args: Args) -> Result<McpConfig> {
 
     // 1. Config file (lowest priority)
     let config_path = args.config.or_else(|| {
-        config_dir().map(|dir| dir.join("dosbox-mcp").join("config.toml"))
+        config_dir().map(|dir| dir.join("dosbox-full-auto-mcp").join("config.toml"))
     });
 
     if let Some(path) = &config_path {
@@ -170,7 +170,7 @@ fn load_config(args: Args) -> Result<McpConfig> {
     }
 
     // 2. Environment variables
-    builder = builder.add_source(Environment::with_prefix("DOSBOX_MCP").separator("_"));
+    builder = builder.add_source(Environment::with_prefix("DOSBOX_FULL_AUTO_MCP").separator("_"));
 
     // 3. CLI args (highest priority) - manually override after building
     let mut config: McpConfig = builder.build()?.try_deserialize()?;

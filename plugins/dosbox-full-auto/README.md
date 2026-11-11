@@ -53,7 +53,7 @@ platform from the official GitHub Releases of the upstream project
 `src/install.py` (`PINNED_DIGESTS`, the digest GitHub publishes for the asset),
 and only then extracts and executes it. Unpinned release tags are refused —
 nothing installs unless its checksum is in the table. The bundle contains
-native executables (`dosbox-mcp`, `dosbox-automation`), `resources/` (shaders,
+native executables (`dosbox-full-auto-mcp`, `dosbox-automation`), `resources/` (shaders,
 fonts, webserver assets) and `libiir.so` (Linux) / equivalent DLLs (Windows).
 Nothing is bundled in the plugin repo itself — this is a setup-time fetch, not
 a shipped payload (Hermes catalog rule 17), disclosed here per rule 13:
@@ -80,7 +80,7 @@ a shipped payload (Hermes catalog rule 17), disclosed here per rule 13:
 
 v1.0.0 shipped loose binaries and aborted twice over: `libiir.so.1: cannot
 open shared object file`, then `ABORT: RENDER: Error setting fallback
-shaders`. The tarball ships `dosbox-mcp`, `dosbox-automation`, `resources/`
+shaders`. The tarball ships `dosbox-full-auto-mcp`, `dosbox-automation`, `resources/`
 (shaders/mapping/fonts/webserver) and `_deps/iir1-build/libiir.so*` together;
 the emulator resolves resources from its cwd (hence `--working-dir`) and the
 launcher sets `LD_LIBRARY_PATH` from the bundle dir.

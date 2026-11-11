@@ -3,9 +3,9 @@ This file is part of the dosbox-automation-is-not-your-nanny fork
 License: GPL-2.0-or-later. This file is original work of the fork. Contact: EternalNooblet <67196335+EternalNooblet@users.noreply.github.com>.
 -->
 
-# dosbox-mcp API Reference
+# dosbox-full-auto-mcp API Reference
 
-Complete reference for all 55 MCP tools exposed by the dosbox-mcp server.
+Complete reference for all 55 MCP tools exposed by the dosbox-full-auto-mcp server.
 
 ## Tool Categories
 
@@ -785,15 +785,15 @@ In addition to tools, the server exposes documentation as **MCP Resources**:
 
 | URI | Description |
 |-----|-------------|
-| `docs://dosbox-mcp/api-reference` | This document |
-| `docs://dosbox-mcp/configuration` | Configuration guide |
-| `docs://dosbox-mcp/workflows` | Common workflow examples |
-| `docs://dosbox-mcp/quickstart` | Quick start guide |
-| `docs://dosbox-mcp/tool/{name}` | Individual tool reference |
+| `docs://dosbox-full-auto-mcp/api-reference` | This document |
+| `docs://dosbox-full-auto-mcp/configuration` | Configuration guide |
+| `docs://dosbox-full-auto-mcp/workflows` | Common workflow examples |
+| `docs://dosbox-full-auto-mcp/quickstart` | Quick start guide |
+| `docs://dosbox-full-auto-mcp/tool/{name}` | Individual tool reference |
 
 Read with `resources/read`:
 ```json
-{ "method": "resources/read", "params": { "uri": "docs://dosbox-mcp/api-reference" } }
+{ "method": "resources/read", "params": { "uri": "docs://dosbox-full-auto-mcp/api-reference" } }
 ```
 
 ---

@@ -3,7 +3,7 @@ This file is part of the dosbox-automation-is-not-your-nanny fork
 License: GPL-2.0-or-later. This file is original work of the fork. Contact: EternalNooblet <67196335+EternalNooblet@users.noreply.github.com>.
 -->
 
-# dosbox-mcp
+# dosbox-full-auto-mcp
 
 > **MCP Server for dosbox-automation REST API**
 
@@ -17,7 +17,7 @@ Control DOSBox instances programmatically via Model Context Protocol. Works with
 
 ## Overview
 
-`dosbox-mcp` is a Model Context Protocol (MCP) server that exposes the **dosbox-automation** REST API as MCP tools. It enables AI assistants to programmatically control DOSBox for:
+`dosbox-full-auto-mcp` is a Model Context Protocol (MCP) server that exposes the **dosbox-automation** REST API as MCP tools. It enables AI assistants to programmatically control DOSBox for:
 
 - **Game automation** — Install, configure, and play DOS games
 - **Testing** — Automated regression testing of DOS applications
@@ -35,7 +35,7 @@ graph TB
         A[Claude Desktop / Cursor / Continue.dev]
     end
 
-    subgraph "MCP Server (dosbox-mcp)"
+    subgraph "MCP Server (dosbox-full-auto-mcp)"
         B[MCP Protocol Handler]
         C[Tool Router: 43 tools]
         D[Config Manager]
@@ -119,11 +119,11 @@ DosBoxInfo {
 
 ```bash
 git clone https://github.com/EternalNooblet/dosbox-automation-is-not-your-nanny
-cd dosbox-automation-is-not-your-nanny/tools/dosbox-mcp
+cd dosbox-automation-is-not-your-nanny/tools/dosbox-full-auto-mcp
 cargo build --release
 ```
 
-Binary: `target/release/dosbox-mcp`
+Binary: `target/release/dosbox-full-auto-mcp`
 
 ---
 
@@ -137,7 +137,7 @@ Binary: `target/release/dosbox-mcp`
 {
   "mcpServers": {
     "dosbox": {
-      "command": "/path/to/dosbox-mcp",
+      "command": "/path/to/dosbox-full-auto-mcp",
       "args": []
     }
   }
@@ -150,8 +150,8 @@ Binary: `target/release/dosbox-mcp`
 {
   "mcpServers": {
     "dosbox": {
-      "command": "/path/to/dosbox-mcp",
-      "args": ["--config", "~/.config/dosbox-mcp/config.toml"]
+      "command": "/path/to/dosbox-full-auto-mcp",
+      "args": ["--config", "~/.config/dosbox-full-auto-mcp/config.toml"]
     }
   }
 }
@@ -161,10 +161,10 @@ Binary: `target/release/dosbox-mcp`
 
 ```bash
 # Auto-starts dosbox-automation (recommended)
-dosbox-mcp
+dosbox-full-auto-mcp
 
 # Or connect to existing instance
-dosbox-mcp --no-auto-start --base-url http://localhost:8386
+dosbox-full-auto-mcp --no-auto-start --base-url http://localhost:8386
 ```
 
 ### 3. Use from AI Assistant
@@ -192,7 +192,7 @@ dosbox-mcp --no-auto-start --base-url http://localhost:8386
 
 ## Configuration
 
-### Config File (`~/.config/dosbox-mcp/config.toml`)
+### Config File (`~/.config/dosbox-full-auto-mcp/config.toml`)
 
 ```toml
 [default]
@@ -213,7 +213,7 @@ base_url = "http://192.168.1.50:8386"
 ### CLI Options
 
 ```bash
-dosbox-mcp [OPTIONS] [-- <DOSBOX_ARGS>...]
+dosbox-full-auto-mcp [OPTIONS] [-- <DOSBOX_ARGS>...]
 
 Options:
   --base-url <URL>           dosbox-automation API URL [env: DOSBOX_API_URL]
@@ -236,7 +236,7 @@ Options:
 |----------|-------------|
 | `DOSBOX_API_URL` | Base URL for dosbox-automation API |
 | `DOSBOX_AUTOMATION_BIN` | Path to dosbox-automation binary |
-| `DOSBOX_MCP_*` | Config overrides (e.g., `DOSBOX_MCP_TIMEOUT_SECS=60`) |
+| `DOSBOX_FULL_AUTO_MCP_*` | Config overrides (e.g., `DOSBOX_FULL_AUTO_MCP_TIMEOUT_SECS=60`) |
 
 ---
 
@@ -248,7 +248,7 @@ Options:
 sequenceDiagram
     participant User
     participant AI
-    participant MCP as dosbox-mcp
+    participant MCP as dosbox-full-auto-mcp
     participant DOSBox
 
     User->>AI: "Install DOOM from CD"
@@ -449,7 +449,7 @@ Common error codes:
 ### Project Structure
 
 ```
-dosbox-mcp/
+dosbox-full-auto-mcp/
 ├── Cargo.toml
 ├── src/
 │   ├── main.rs           # Entry point, CLI, auto-start logic
@@ -483,7 +483,7 @@ cargo test
 
 ```bash
 # Specify path explicitly
-dosbox-mcp --dosbox-bin /path/to/dosbox-automation
+dosbox-full-auto-mcp --dosbox-bin /path/to/dosbox-automation
 
 # Or set env var
 export DOSBOX_AUTOMATION_BIN=/path/to/dosbox-automation
@@ -496,10 +496,10 @@ export DOSBOX_AUTOMATION_BIN=/path/to/dosbox-automation
 lsof -i :8386
 
 # Increase timeout
-dosbox-mcp --timeout-secs 60
+dosbox-full-auto-mcp --timeout-secs 60
 
 # Check dosbox-automation logs
-dosbox-mcp --log-level debug
+dosbox-full-auto-mcp --log-level debug
 ```
 
 ### "ldd: libiir.so not found"
@@ -509,7 +509,7 @@ The launcher auto-detects `libiir.so` from the build directory. If using a syste
 ```bash
 # Set library path manually
 export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
-dosbox-mcp
+dosbox-full-auto-mcp
 ```
 
 ### Permission denied on disk swap
@@ -529,7 +529,7 @@ localhost, so the setting is inert. What actually denies a disk swap:
   the path would execute extra DOS commands), and — after resolving `..`
   and symlinks — inside the configured root, default the plugin data dir.
   Point it elsewhere with `--mount-root`, `mount_root` in the config file,
-  or `DOSBOX_MCP_MOUNT_ROOT`; the rejection names the allowed root. The
+  or `DOSBOX_FULL_AUTO_MCP_MOUNT_ROOT`; the rejection names the allowed root. The
   same root confines `swap_disk` images and MOUNT lines typed through
   `type_text`; MOUNTs from inside the guest (batches) are the only ones
   the server cannot see.

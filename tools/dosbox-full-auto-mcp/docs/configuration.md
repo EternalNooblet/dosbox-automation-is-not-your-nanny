@@ -3,19 +3,19 @@ This file is part of the dosbox-automation-is-not-your-nanny fork
 License: GPL-2.0-or-later. This file is original work of the fork. Contact: EternalNooblet <67196335+EternalNooblet@users.noreply.github.com>.
 -->
 
-# dosbox-mcp Configuration Guide
+# dosbox-full-auto-mcp Configuration Guide
 
-Complete configuration reference for the dosbox-mcp server.
+Complete configuration reference for the dosbox-full-auto-mcp server.
 
 ## Configuration Sources (Priority Order)
 
-1. **Config file** — `~/.config/dosbox-mcp/config.toml` (lowest priority)
-2. **Environment variables** — `DOSBOX_MCP_*` prefix
+1. **Config file** — `~/.config/dosbox-full-auto-mcp/config.toml` (lowest priority)
+2. **Environment variables** — `DOSBOX_FULL_AUTO_MCP_*` prefix
 3. **CLI arguments** — Highest priority
 
 ---
 
-## Config File (`~/.config/dosbox-mcp/config.toml`)
+## Config File (`~/.config/dosbox-full-auto-mcp/config.toml`)
 
 ```toml
 [default]
@@ -51,7 +51,7 @@ base_url = "http://192.168.1.50:8386"
 ### CLI Options
 
 ```bash
-dosbox-mcp [OPTIONS] [-- <DOSBOX_ARGS>...]
+dosbox-full-auto-mcp [OPTIONS] [-- <DOSBOX_ARGS>...]
 
 Options:
   --base-url <URL>           dosbox-automation API URL [env: DOSBOX_API_URL]
@@ -67,7 +67,7 @@ Options:
   --cpu-cycles <CYCLES>      CPU cycles pinned for both modes (default 30000) [env: DOSBOX_CPU_CYCLES]
   --secure-mode              Enable secure mode (blocks MOUNT, default: false)
   --display <DISPLAY>        X11 display (e.g., ":99" for Xvfb). If unset, uses offscreen SDL driver [env: DOSBOX_DISPLAY]
-  --mount-root <ROOT>        Root mount_drive host paths must resolve under (default: plugin data dir) [env: DOSBOX_MCP_MOUNT_ROOT]
+  --mount-root <ROOT>        Root mount_drive host paths must resolve under (default: plugin data dir) [env: DOSBOX_FULL_AUTO_MCP_MOUNT_ROOT]
 
   <DOSBOX_ARGS>...           Extra args passed to dosbox-automation
 ```
@@ -77,13 +77,13 @@ Options:
 ```bash
 # The default — run with zero arguments. Auto-start finds the binary,
 # sets libiir LD_LIBRARY_PATH for the child, and serves on localhost:8386.
-dosbox-mcp
+dosbox-full-auto-mcp
 
 # Debug logging (only when diagnosing startup)
-dosbox-mcp --log-level debug
+dosbox-full-auto-mcp --log-level debug
 
 # Pass extra args to dosbox-automation
-dosbox-mcp -- -conf /custom/dosbox.conf
+dosbox-full-auto-mcp -- -conf /custom/dosbox.conf
 ```
 
 Prefer zero arguments. The options below exist for special setups only.
@@ -98,22 +98,22 @@ Prefer zero arguments. The options below exist for special setups only.
 | `DOSBOX_AUTOMATION_BIN` | Path to dosbox-automation binary |
 | `DOSBOX_CPU_CYCLES` | CPU cycles pinned for both modes (default 30000) |
 | `DOSBOX_DISPLAY` | X11 display (e.g., ":99" for Xvfb) |
-| `DOSBOX_MCP_BASE_URL` | Config override for base_url |
-| `DOSBOX_MCP_TIMEOUT_SECS` | Config override for timeout |
-| `DOSBOX_MCP_VERIFY_TLS` | Config override for TLS verification |
-| `DOSBOX_MCP_CPU_CYCLES` | Config override for cpu_cycles |
-| `DOSBOX_MCP_SECURE_MODE` | Config override for secure_mode |
-| `DOSBOX_MCP_DISPLAY` | Config override for display |
-| `DOSBOX_MCP_LOG_LEVEL` | Config override for log level |
+| `DOSBOX_FULL_AUTO_MCP_BASE_URL` | Config override for base_url |
+| `DOSBOX_FULL_AUTO_MCP_TIMEOUT_SECS` | Config override for timeout |
+| `DOSBOX_FULL_AUTO_MCP_VERIFY_TLS` | Config override for TLS verification |
+| `DOSBOX_FULL_AUTO_MCP_CPU_CYCLES` | Config override for cpu_cycles |
+| `DOSBOX_FULL_AUTO_MCP_SECURE_MODE` | Config override for secure_mode |
+| `DOSBOX_FULL_AUTO_MCP_DISPLAY` | Config override for display |
+| `DOSBOX_FULL_AUTO_MCP_LOG_LEVEL` | Config override for log level |
 
 ### Example
 
 ```bash
 export DOSBOX_API_URL=http://localhost:8386
-export DOSBOX_MCP_TIMEOUT_SECS=60
-export DOSBOX_MCP_CPU_CYCLES=30000
-export DOSBOX_MCP_DISPLAY=:99
-dosbox-mcp
+export DOSBOX_FULL_AUTO_MCP_TIMEOUT_SECS=60
+export DOSBOX_FULL_AUTO_MCP_CPU_CYCLES=30000
+export DOSBOX_FULL_AUTO_MCP_DISPLAY=:99
+dosbox-full-auto-mcp
 ```
 
 ### Graphics Mode with Xvfb
@@ -124,11 +124,11 @@ For graphical DOS applications (not text-mode), you need a real X11 display. Use
 # Start Xvfb on display :99 (run once as persistent infrastructure)
 Xvfb :99 -screen 0 1024x768x24 &
 
-# Run dosbox-mcp with Xvfb display
-dosbox-mcp --display :99 --cpu-cycles 30000
+# Run dosbox-full-auto-mcp with Xvfb display
+dosbox-full-auto-mcp --display :99 --cpu-cycles 30000
 ```
 
-The `--display :99` (or `DOSBOX_DISPLAY=:99` / `DOSBOX_MCP_DISPLAY=:99`) tells dosbox-automation to use Xvfb instead of the offscreen SDL driver, enabling frame capture for graphics-mode applications.
+The `--display :99` (or `DOSBOX_DISPLAY=:99` / `DOSBOX_FULL_AUTO_MCP_DISPLAY=:99`) tells dosbox-automation to use Xvfb instead of the offscreen SDL driver, enabling frame capture for graphics-mode applications.
 
 ---
 
@@ -154,14 +154,14 @@ Auto-start needs no configuration: binary detection, `LD_LIBRARY_PATH` for `libi
 
 ```bash
 # Graphics mode with Xvfb (for graphical apps, not text-mode):
-# prefer display = ":99" in ~/.config/dosbox-mcp/config.toml over CLI flags
+# prefer display = ":99" in ~/.config/dosbox-full-auto-mcp/config.toml over CLI flags
 Xvfb :99 -screen 0 1024x768x24 &
 
 # Enable secure mode (blocks MOUNT from guest/API)
-dosbox-mcp --secure-mode
+dosbox-full-auto-mcp --secure-mode
 
 # Connect to an already-running remote instance (multi-instance setups)
-dosbox-mcp --no-auto-start --base-url http://remote-host:8386
+dosbox-full-auto-mcp --no-auto-start --base-url http://remote-host:8386
 ```
 
 **Note:** By default (`--secure-mode` off), MOUNT is allowed from both guest commands and API. There is no mount whitelist: any existing directory may be mounted (system paths, symlinks to system paths, and non-directories are still refused). The old `mount_allowed_bases` / `mount_allowed_image_roots` settings and their MCP tools were removed.
@@ -180,12 +180,12 @@ checked **before anything is typed**:
   a `../` chain nor a symlinked directory escapes.
 
 ```toml
-# ~/.config/dosbox-mcp/config.toml — pick a root the owner trusts
+# ~/.config/dosbox-full-auto-mcp/config.toml — pick a root the owner trusts
 mount_root = "/home/papa/games"
 ```
 
 Same via CLI (`--mount-root /home/papa/games`) or env
-(`DOSBOX_MCP_MOUNT_ROOT=/home/papa/games`).
+(`DOSBOX_FULL_AUTO_MCP_MOUNT_ROOT=/home/papa/games`).
 
 Unset default: the plugin data directory
 `<HERMES_HOME, or HOME/.hermes>/plugin-data/dosbox-full-auto` — the plugin
@@ -261,5 +261,5 @@ Mounts must be existing directories (system paths and symlinks to them are refus
 
 Configuration docs available as MCP Resource:
 ```json
-{ "method": "resources/read", "params": { "uri": "docs://dosbox-mcp/configuration" } }
+{ "method": "resources/read", "params": { "uri": "docs://dosbox-full-auto-mcp/configuration" } }
 ```
