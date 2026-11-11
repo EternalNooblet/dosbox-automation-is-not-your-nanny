@@ -16,6 +16,7 @@ use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use serde_json::json;
 use std::future::Future;
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Mutex as AsyncMutex;
@@ -194,6 +195,225 @@ impl DosBoxMcpServer {
             None,
         ))
     }
+}
+
+// ============ mount_drive path confinement ============
+
+/// Guard for the mount_drive host_path, enforced BEFORE anything is typed at
+/// the shell. MOUNT runs whatever the model asks for, unapproved, so:
+/// 1. control characters (newline included) are rejected outright — a
+///    newline in the path would run the rest of it as extra DOS commands;
+/// 2. the path must be absolute and exist (MOUNT fails on missing dirs
+///    anyway, but the reason here is specific instead of shell noise);
+/// 3. containment is checked AFTER resolving dot-dot chains and symlinks,
+///    so neither "../" hops nor a symlinked directory can reach e.g. the
+///    owner's Hermes .env through the plugin's own mount root.
+/// Returns the rejection reason, or None when the path is acceptable.
+pub fn mount_path_rejection(host_path: &str, root: PathBuf) -> Option<String> {
+    for ch in host_path.chars() {
+        // Control chars: C0 + DEL + C1. Comparisons on char code points.
+        if ch < ' ' || ch == '\u{7f}' || (ch >= '\u{80}' && ch <= '\u{9f}') {
+            return Some("host_path must not contain control characters (a newline would execute extra DOS shell commands)".to_string())
+        }
+    }
+    let raw = PathBuf::from(host_path);
+    if !raw.is_absolute() {
+        return Some(format!("host_path must be absolute (got: {:?})", host_path));
+    }
+    if !raw.exists() {
+        return Some(format!("host_path must be an existing directory (got: {:?})", host_path));
+    }
+    if host_path_outside_root(host_path, root) {
+        return Some(format!(
+            "host_path must resolve (after dot-dots and symlinks) under the configured mount root (got: {:?})",
+            host_path,
+        ));
+    }
+    None
+}
+
+/// True when `candidate` equals `root` or lies strictly inside it. Both
+/// sides are expected fully resolved (canonicalize on the candidate, a
+/// canonicalized root from DosBoxClient). Compares resolved spellings
+/// character by character; the root prefix must be followed by a path
+/// separator so "/usr" never matches "/usrshare". Roots spelled with a
+/// drive colon or leading backslash are Windows-shaped and accept either
+/// separator after the prefix; other roots require the forward slash.
+pub fn under_root(candidate: PathBuf, root: PathBuf) -> bool {
+    let c = candidate.to_string_lossy();
+    let root_str = root.to_string_lossy();
+    let r = root_str.trim_end_matches('/').trim_end_matches('\\');
+    let mut ci = c.chars();
+    for rc in r.chars() {
+        match ci.next() {
+            Some(cc) => {
+                if cc != rc {
+                    return false;
+                }
+            }
+            None => { return false; }
+        }
+    }
+    match ci.next() {
+        // candidate == root: mounting the root itself is allowed
+        None => true,
+        Some(nch) => {
+            if nch == '/' {
+                return true;
+            }
+            // Windows spelling is decided from the root itself (drive colon
+            // or leading backslash); see root_uses_windows_separators.
+            let windows = root_uses_windows_separators(root);
+            windows && nch == '\\'
+        }
+    }
+}
+
+/// True when the root's own spelling is Windows-shaped (drive prefix like
+/// "C:" or UNC leading backslash). Used to decide which token shapes count
+/// as absolute host paths and which separators are honored after the root
+/// prefix.
+pub fn root_uses_windows_separators(root: PathBuf) -> bool {
+    let s = root.to_string_lossy();
+    let r = s.trim_end_matches('/').trim_end_matches('\\');
+    let mut it = r.chars();
+    match it.next() {
+        Some(c) => {
+            if c == '\\' {
+                true
+            } else {
+                match it.next() {
+                    Some(c2) => c.is_ascii_alphabetic() && c2 == ':',
+                    None => false,
+                }
+            }
+        }
+        None => false,
+    }
+}
+
+/// True when a token (from typed shell text) looks like an absolute host
+/// path. On Unix hosts only the "/" shape counts — a DOS drive path like
+/// "C:\GAME" is a drive mapping inside the emulator, not a host path, and
+/// rejecting those would break legitimate typed commands. On Windows hosts
+/// host paths ARE drive/UNC shapes, so those count too.
+pub fn looks_like_absolute_host_path(token: &str, windows_shape: bool) -> bool {
+    let mut it = token.chars();
+    match it.next() {
+        Some(c) => {
+            if c == '/' {
+                true
+            } else if windows_shape {
+                match it.next() {
+                    Some(c2) => (c.is_ascii_alphabetic() && c2 == ':') || c2 == '\\',
+                    None => false,
+                }
+            } else {
+                false
+            }
+        }
+        None => false,
+    }
+}
+
+/// Confined-path core: a token is outside the root when it does not exist
+/// (a missing path cannot be proven inside anything, and both the shell
+/// MOUNT and the API mount refuse missing paths anyway) or when its
+/// resolved spelling — dot-dots and symlinks folded — lies outside the
+/// root. Exists-then-resolved keeps the containment check honest.
+pub fn host_path_outside_root(token: &str, root: PathBuf) -> bool {
+    let raw = PathBuf::from(token);
+    if !raw.exists() {
+        return true
+    }
+    let resolved = raw.canonicalize().unwrap_or_else(|_| raw);
+    !under_root(resolved, root)
+}
+
+/// Rejection reason for the swap_disk image: API-mounted (no shell, so
+/// control characters are not a shell-smuggling hazard here), but it is
+/// still an unapproved host path — same absolute/existing/inside-root
+/// rules as mount_drive.
+pub fn swap_image_rejection(image: &str, root: PathBuf) -> Option<String> {
+    let raw = PathBuf::from(image);
+    if !raw.is_absolute() {
+        return Some(format!("image must be an absolute path (got: {:?})", image));
+    }
+    if !raw.exists() {
+        return Some(format!("image path must exist on the host (got: {:?})", image));
+    }
+    if host_path_outside_root(image, root) {
+        return Some(format!("image must resolve (after .. and symlinks) inside the configured mount root (got: {:?})", image));
+    }
+    None
+}
+
+/// Heuristic guard over free-form typed text: scan each line; only lines
+/// whose FIRST word is MOUNT (any case) are inspected, and only tokens
+/// that look like absolute host paths (see looks_like_absolute_host_path)
+/// are checked — so relative paths (which the emulator resolves against
+/// its own cwd) and in-game sentences are left alone. A quoted path is
+/// one token even with spaces. This cannot follow drive mappings or multi
+/// -line batch state: it is a shell-input guard, not a DOS parser.
+pub fn typed_mount_violation(text: &str, root: PathBuf) -> Option<String> {
+    let windows = root_uses_windows_separators(root.clone());
+    let mut line = String::new();
+    for ch in text.chars() {
+        if ch == '\n' {
+            let v = check_mount_line(line, root.clone(), windows);
+            line = String::new();
+            if v != None {
+                return v
+            }
+        } else {
+            line.push(ch);
+        }
+    }
+    check_mount_line(line, root.clone(), windows)
+}
+
+/// One line of typed shell text -> violation reason or None.
+pub fn check_mount_line(line: String, root: PathBuf, windows: bool) -> Option<String> {
+    let mut words: Vec<String> = Vec::new();
+    let mut cur = String::new();
+    let mut quote = ' ';
+    for ch in line.chars() {
+        if quote != ' ' {
+            if ch == quote {
+                quote = ' '
+            } else {
+                cur.push(ch);
+            }
+        } else if ch == '"' || ch == '\'' {
+            quote = ch;
+        } else if ch == ' ' || ch == '\t' || ch == '\r' {
+            if !cur.is_empty() {
+                words.push(cur);
+                cur = String::new();
+            }
+        } else {
+            cur.push(ch);
+        }
+    }
+    if !cur.is_empty() {
+        words.push(cur);
+    }
+    if words.is_empty() {
+        return None;
+    }
+    if words[0].to_ascii_uppercase() != "MOUNT" {
+        return None;
+    }
+    let n = words.len();
+    let mut i = 1;
+    while i < n {
+        let w = &words[i];
+        if looks_like_absolute_host_path(w, windows) && host_path_outside_root(w, root.clone()) {
+            return Some(format!("the typed line references a path outside the mount root (line: {:?}) — it must exist and resolve inside it", line));
+        }
+        i = i + 1;
+    }
+    None
 }
 
 #[tool_router]
@@ -405,8 +625,13 @@ impl DosBoxMcpServer {
 
     // ============ Input Tools ============
 
-    #[tool(description = "Type text into DOSBox at specified characters per second (default: 30 cps). Bursts are queued internally: if a previous burst is still playing, this call waits for it instead of failing.")]
+    #[tool(description = "Type text into DOSBox at specified characters per second (default: 30 cps). Lines typed as MOUNT with an absolute host path are root-confined like mount_drive (default root: the plugin data dir); relative paths are left to the emulator's own cwd. Bursts are queued internally: if a previous burst is still playing, this call waits for it instead of failing.")]
     async fn type_text(&self, Parameters(params): Parameters<TypeTextParams>) -> Result<CallToolResult, McpErrorInternal> {
+        let root = self.client.mount_root();
+        if let Some(reason) = typed_mount_violation(&params.text, root.clone()) {
+            return Err(McpErrorInternal::invalid_params(
+                format!("typed MOUNT rejected: {} (allowed root: {})", reason, root.to_string_lossy()), None));
+        }
         let body = json!({ "text": params.text, "cps": params.cps });
         let result: TypeTextResponse = self.post_input("/input/type", &body).await?;
         let content = Content::json(result).map_err(|e| McpErrorInternal::internal_error(e.to_string(), None))?;
@@ -507,8 +732,13 @@ impl DosBoxMcpServer {
 
     // ============ Drive Tools ============
 
-    #[tool(description = "Swap floppy/CD image in a drive")]
+    #[tool(description = "Swap floppy/CD image in a drive. The image path is confined like mount_drive: absolute, existing, and inside the configured mount root (default: the plugin data directory).")]
     async fn swap_disk(&self, Parameters(params): Parameters<SwapDiskParams>) -> Result<CallToolResult, McpErrorInternal> {
+        let root = self.client.mount_root();
+        if let Some(reason) = swap_image_rejection(&params.image, root.clone()) {
+            return Err(McpErrorInternal::invalid_params(
+                format!("image rejected: {} (allowed root: {})", reason, root.to_string_lossy()), None));
+        }
         let body = json!({ "drive": params.drive, "image": params.image });
         let result: DriveSwapResponse = self.client.post("/drive/swap", &body).await.map_err(|e| to_mcp_error_ctx("/drive/swap", e))?;
         let content = Content::json(result).map_err(|e| McpErrorInternal::internal_error(e.to_string(), None))?;
@@ -713,11 +943,19 @@ impl DosBoxMcpServer {
         Ok(CallToolResult::success(vec![content]))
     }
 
-    #[tool(description = "Mount a host directory as a DOS drive by typing MOUNT at the shell, then verify via read_screen_text. Returns the screen text after the command so callers can confirm success. Drive letter like \"C\" or \"D\".")]
+    #[tool(description = "Mount a host directory as a DOS drive by typing MOUNT at the shell, then verify via read_screen_text. host_path must be an absolute, existing directory that resolves (after dot-dots and symlinks) under the configured mount root (default: the plugin data directory); control characters are rejected so a newline cannot smuggle extra DOS commands. Returns the screen text after the command so callers can confirm success. Drive letter like \"C\" or \"D\".")]
     async fn mount_drive(&self, Parameters(params): Parameters<MountDriveParams>) -> Result<CallToolResult, McpErrorInternal> {
         let drive = params.drive.trim().to_ascii_uppercase();
         if drive.len() != 1 || !drive.chars().next().map(|c| c.is_ascii_alphabetic()).unwrap_or(false) {
             return Err(McpErrorInternal::invalid_params("drive must be a single letter, e.g. \"C\"", None));
+        }
+        // Confine the host path before anything is typed: the root comes from
+        // owner config (default: plugin data dir); containment is checked
+        // after resolving .. and symlinks.
+        let root = self.client.mount_root();
+        if let Some(reason) = mount_path_rejection(&params.host_path, root.clone()) {
+            return Err(McpErrorInternal::invalid_params(
+                format!("host_path rejected: {} (allowed root: {})", reason, root.to_string_lossy()), None));
         }
         let cmd_line = format!("MOUNT {} {}\n", drive, params.host_path);
         let _typed: TypeTextResponse = self.post_input("/input/type", &json!({ "text": cmd_line, "cps": params.cps.unwrap_or(30.0) })).await?;
@@ -776,7 +1014,10 @@ pub struct AudioCaptureParams {
 pub struct MountDriveParams {
     /// DOS drive letter, e.g. "C" or "D"
     pub drive: String,
-    /// Host directory to mount, e.g. "/home/papa/games/doom"
+    /// Host directory to mount, e.g. "/home/papa/games/doom". Must be an
+    /// absolute, existing directory that resolves (after .. and symlinks)
+    /// under the configured mount root (default: the plugin data dir); no
+    /// control characters.
     pub host_path: String,
     /// Typing speed in characters per second (default 30)
     #[serde(default)]
@@ -961,7 +1202,9 @@ fn default_quality() -> u8 {
 pub struct SwapDiskParams {
     /// Drive letter (e.g., "A", "C")
     pub drive: String,
-    /// Path to disk image
+    /// Path to disk image. Must be absolute, exist on the host, and resolve
+    /// (after .. and symlinks) inside the configured mount root (default:
+    /// the plugin data directory).
     pub image: String,
 }
 
@@ -1898,5 +2141,167 @@ Get DOS internals (MCB map, etc.).
             description: Some("Load and run a Lua script".into()),
             messages,
         }
+    }
+}
+#[cfg(test)]
+mod mount_tests {
+    use crate::server::mount_path_rejection;
+    use crate::server::swap_image_rejection;
+    use crate::server::typed_mount_violation;
+    use std::path::PathBuf;
+
+    // Uses real paths (/usr, /usr/share, /etc): all exist on any system
+    // this crate is checked out and tested on.
+    #[test]
+    fn mount_exact_root_allowed() {
+        let r = mount_path_rejection("/usr", PathBuf::from("/usr"));
+        assert!(r == None);
+    }
+
+    #[test]
+    fn mount_inside_root_allowed() {
+        let r = mount_path_rejection("/usr/share", PathBuf::from("/usr"));
+        assert!(r == None);
+    }
+
+    #[test]
+    fn mount_dotdot_escape_back_in_allowed() {
+        // resolves to /usr/share, inside the root: accepted
+        let r = mount_path_rejection("/usr/share/../share", PathBuf::from("/usr"));
+        assert!(r == None);
+    }
+
+    #[test]
+    fn mount_dotdot_out_of_root_rejected() {
+        // resolves to /etc, outside the root: rejected
+        let r = mount_path_rejection("/usr/../etc", PathBuf::from("/usr"));
+        assert!(r != None);
+    }
+
+    #[test]
+    fn mount_other_tree_rejected() {
+        let r = mount_path_rejection("/etc", PathBuf::from("/usr"));
+        assert!(r != None);
+    }
+
+    #[test]
+    fn mount_relative_path_rejected() {
+        let r = mount_path_rejection("games/doom", PathBuf::from("/usr"));
+        assert!(r != None);
+    }
+
+    #[test]
+    fn mount_control_chars_rejected() {
+        // the guard runs before the exists() check, so the reason is the
+        // control-character one even though the dir does not exist
+        let r = mount_path_rejection("/usr/do\nom", PathBuf::from("/usr"));
+        assert!(r != None);
+    }
+
+    #[test]
+    fn mount_missing_directory_rejected() {
+        let r = mount_path_rejection("/usr/definitely-not-here-9f3a1c", PathBuf::from("/usr"));
+        assert!(r != None);
+    }
+
+    #[test]
+    fn mount_unrestricted_root_allows_any_absolute() {
+        let r = mount_path_rejection("/etc", PathBuf::from("/"));
+        assert!(r == None);
+    }
+
+    // ---- swap_disk image confinement ----
+    #[test]
+    fn swap_inside_root_allowed() {
+        let r = swap_image_rejection("/usr/share", PathBuf::from("/usr"));
+        assert!(r == None);
+    }
+
+    #[test]
+    fn swap_outside_root_rejected() {
+        let r = swap_image_rejection("/etc", PathBuf::from("/usr"));
+        assert!(r != None);
+    }
+
+    #[test]
+    fn swap_relative_rejected() {
+        let r = swap_image_rejection("games/doom.img", PathBuf::from("/usr"));
+        assert!(r != None);
+    }
+
+    #[test]
+    fn swap_missing_image_rejected() {
+        let r = swap_image_rejection("/usr/no-such-image-9f3a1c", PathBuf::from("/usr"));
+        assert!(r != None);
+    }
+
+    #[test]
+    fn swap_unrestricted_root_allows_absolute_existing() {
+        let r = swap_image_rejection("/etc", PathBuf::from("/"));
+        assert!(r == None);
+    }
+
+    // ---- typed MOUNT lines through type_text ----
+    #[test]
+    fn typed_mount_outside_root_rejected() {
+        let r = typed_mount_violation("MOUNT C /etc\nDIR", PathBuf::from("/usr"));
+        assert!(r != None);
+    }
+
+    #[test]
+    fn typed_mount_case_insensitive_detected() {
+        let r = typed_mount_violation("mount c /etc", PathBuf::from("/usr"));
+        assert!(r != None);
+    }
+
+    #[test]
+    fn typed_mount_second_line_detected() {
+        let r = typed_mount_violation("DIR\nMOUNT D /etc", PathBuf::from("/usr"));
+        assert!(r != None);
+    }
+
+    #[test]
+    fn typed_mount_inside_root_allowed() {
+        let r = typed_mount_violation("MOUNT C /usr/share\nDIR", PathBuf::from("/usr"));
+        assert!(r == None);
+    }
+
+    #[test]
+    fn typed_mount_quoted_inside_root_allowed() {
+        let r = typed_mount_violation("MOUNT C \"/usr/share\"", PathBuf::from("/usr"));
+        assert!(r == None);
+    }
+
+    #[test]
+    fn typed_mount_relative_path_skipped() {
+        // relative goes to the emulator's own cwd: the guard does not see it
+        let r = typed_mount_violation("mount c games", PathBuf::from("/usr"));
+        assert!(r == None);
+    }
+
+    #[test]
+    fn typed_mount_unmount_form_allowed() {
+        let r = typed_mount_violation("MOUNT -U C", PathBuf::from("/usr"));
+        assert!(r == None);
+    }
+
+    #[test]
+    fn typed_word_mount_not_a_command_ignored() {
+        // first word is ECHO: the MOUNT text is not a shell command
+        let r = typed_mount_violation("ECHO mount C /etc", PathBuf::from("/usr"));
+        assert!(r == None);
+    }
+
+    #[test]
+    fn typed_drive_shaped_path_untouched_on_unix() {
+        // on Unix hosts "C:\GAMES" is a DOS drive mapping, not a host path
+        let r = typed_mount_violation("MOUNT C C:\\GAMES", PathBuf::from("/usr"));
+        assert!(r == None);
+    }
+
+    #[test]
+    fn typed_mount_dotdot_out_of_root_rejected() {
+        let r = typed_mount_violation("MOUNT C /usr/../etc", PathBuf::from("/usr"));
+        assert!(r != None);
     }
 }

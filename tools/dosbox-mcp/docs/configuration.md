@@ -37,6 +37,7 @@ base_url = "http://192.168.1.50:8386"
 | `verify_tls` | boolean | true | Verify TLS certificates |
 | `cpu_cycles` | string | `30000` | CPU cycles, pinned for both real and protected mode |
 | `secure_mode` | boolean | false | Enable secure mode (blocks MOUNT) |
+| `mount_root` | path | (plugin data dir) | Root `mount_drive` host paths must resolve under — see [Mount root](#mount-root-mount_drive) |
 | `display` | string | (unset) | X11 display (e.g., ":99" for Xvfb). If unset, uses offscreen SDL driver. |
 | `instances` | array | [] | Named instances for multi-server setups |
 
@@ -61,6 +62,7 @@ Options:
   --cpu-cycles <CYCLES>      CPU cycles pinned for both modes (default 30000) [env: DOSBOX_CPU_CYCLES]
   --secure-mode              Enable secure mode (blocks MOUNT, default: false)
   --display <DISPLAY>        X11 display (e.g., ":99" for Xvfb). If unset, uses offscreen SDL driver [env: DOSBOX_DISPLAY]
+  --mount-root <ROOT>        Root mount_drive host paths must resolve under (default: plugin data dir) [env: DOSBOX_MCP_MOUNT_ROOT]
 
   <DOSBOX_ARGS>...           Extra args passed to dosbox-automation
 ```
@@ -134,9 +136,8 @@ When `--auto-start` (default), the server:
 3. **Configures webserver** — Applies defaults:
    ```ini
    webserver_enabled=on
-   webserver_bind_address=0.0.0.0
+   webserver_bind_address=127.0.0.1
    webserver_port=8386
-   webserver_allow_remote=on
    webserver_token_file=off
    ```
 4. **Health checks** — Waits up to 30s for API readiness
@@ -159,6 +160,40 @@ dosbox-mcp --no-auto-start --base-url http://remote-host:8386
 ```
 
 **Note:** By default (`--secure-mode` off), MOUNT is allowed from both guest commands and API. There is no mount whitelist: any existing directory may be mounted (system paths, symlinks to system paths, and non-directories are still refused). The old `mount_allowed_bases` / `mount_allowed_image_roots` settings and their MCP tools were removed.
+
+### Mount root (`mount_drive`)
+
+`mount_drive` types `MOUNT <drive> <host_path>` at the DOS shell, and the path
+it gets is the model's — unapproved. Left unrestricted, one call can reach the
+whole host: your Hermes `.env`, work folders, anything. So `host_path` is
+checked **before anything is typed**:
+
+- absolute and existing (else a specific rejection, not shell noise);
+- no control characters — a newline in the path would run the rest of it as
+  extra DOS commands;
+- inside the configured root **after resolving `..` and symlinks**, so neither
+  a `../` chain nor a symlinked directory escapes.
+
+```toml
+# ~/.config/dosbox-mcp/config.toml — pick a root the owner trusts
+mount_root = "/home/papa/games"
+```
+
+Same via CLI (`--mount-root /home/papa/games`) or env
+(`DOSBOX_MCP_MOUNT_ROOT=/home/papa/games`).
+
+Unset default: the plugin data directory
+`<HERMES_HOME, or HOME/.hermes>/plugin-data/dosbox-full-auto` — the plugin
+itself passes this explicitly when it registers the server. Set `mount_root =
+"/"` to disable the confinement.
+
+The same root confines `swap_disk` image paths and MOUNT lines typed through
+`type_text` (that last one is a text-scanning guard: lines whose first word
+is `mount`, absolute host-path tokens only — relative paths and in-game text
+untouched). MOUNTs performed inside the guest (batch files, self-booting
+games) only face the emulator's own rules — no MCP-side check can see those.
+And `MOUNT` typed with a DOS drive shape (`C:\GAME`) is a drive mapping on
+Unix hosts, deliberately left alone.
 
 ---
 
@@ -213,7 +248,7 @@ Another process owns port 8386, or the emulator is still booting. Check what hol
 The launcher auto-detects `libiir.so` relative to the binary's build directory (following symlinks) and sets `LD_LIBRARY_PATH` for the child process. No manual export is needed for build-dir or symlinked installs.
 
 ### Permission denied on disk swap
-Mounts must be existing directories (system paths and symlinks to them are refused). There is no whitelist config; use `mount_drive` or type MOUNT.
+Mounts must be existing directories (system paths and symlinks to them are refused). There is no whitelist config for the emulator itself: `mount_drive`, `swap_disk` images and MOUNT lines typed through `type_text` all confine to the configured mount root (default: the plugin data dir — see the Mount root section) and a rejection names the allowed root; only MOUNTs issued from inside the guest (batch files, game code) face the emulator's rules alone.
 
 ---
 

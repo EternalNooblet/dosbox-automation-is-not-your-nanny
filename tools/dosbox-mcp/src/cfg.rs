@@ -30,6 +30,15 @@ pub struct McpConfig {
     /// X11 display to use (e.g., ":99" for Xvfb). If not set, uses offscreen SDL driver.
     #[serde(default)]
     pub display: Option<String>,
+
+    /// Root that mount_drive host paths must live under. The host path is
+    /// checked after resolving ".." and symlinks, so it cannot escape via
+    /// a symlink or a "../" chain; control characters (newlines included)
+    /// are rejected outright because the path is typed into the DOS shell.
+    /// Default when unset: the plugin data directory under the Hermes home
+    /// (see plugin_data_dir_or_unrestricted() in client.rs).
+    #[serde(default)]
+    pub mount_root: Option<PathBuf>,
 }
 
 fn default_base_url() -> String {
@@ -57,6 +66,7 @@ impl Default for McpConfig {
             cpu_cycles: default_cpu_cycles(),
             secure_mode: false,
             display: None,
+            mount_root: None,
         }
     }
 }

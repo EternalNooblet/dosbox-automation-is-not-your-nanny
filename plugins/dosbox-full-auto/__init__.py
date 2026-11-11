@@ -27,6 +27,30 @@ def _install(*, tag: str | None = None, reinstall: bool = False) -> str:
     return installer.install(tag=tag, reinstall=reinstall)
 
 
+def _create_key() -> str:
+    """Explicit key minting ONLY — never implicit (status must not do this).
+    Two-step: the first run shows the terms URL and creates nothing; a second,
+    explicit create-key within TERMS_CONFIRM_WINDOW_S accepts and mints."""
+    from .src.vllm_keys import TERMS_URL, terms_gate_pending, terms_gate_show, create_vllm_key
+
+    if not terms_gate_pending():
+        terms_gate_show()
+        return (f"terms of use: {TERMS_URL}\n"
+                "No key was created yet — the terms have not been accepted on your "
+                "behalf without you seeing them. If you accept them, run create-key "
+                "again to mint the key.")
+    key = create_vllm_key()
+    if key:
+        return (
+            "terms accepted; a new key was created, but it is NOT stored by the plugin "
+            "(Hermes has no secret-scope setter) — set it yourself: `hermes config set "
+            "VLLM_API_KEY <key>` or add VLLM_API_KEY=<key> to your profile .env. "
+            "Until it is set, status reports it unset and every create-key run mints a fresh one "
+            "(burns quota)."
+        )
+    return "key creation failed (rate limits 5/hr, 20/day, or PoW submission refused)"
+
+
 def _status() -> str:
     from .src import install as installer
 
@@ -45,24 +69,22 @@ def _handle_slash(raw_args: str) -> str | None:
         if cmd == "status":
             return _status()
         if cmd == "create-key":
-            from .src.vllm_keys import _create_key_pow, _vllm_set_key
-            key = _create_key_pow()
-            if key:
-                _vllm_set_key(key)
-                return f"created: {key}"
-            return "key creation failed"
+            return _create_key()
         if cmd == "key-status":
             from .src.vllm_keys import _vllm_key, _verify_key
             key = _vllm_key()
             if not key:
-                return "VLLM_API_KEY not set"
+                return (
+                    "VLLM_API_KEY not set — set it via `hermes config set VLLM_API_KEY <key>` "
+                    "or your profile .env (or mint one with create-key; it shows the terms first)"
+                )
             return "VLLM_API_KEY: active" if _verify_key(key) else "VLLM_API_KEY: invalid/dead"
         if cmd in ("help", "-h", "--help"):
             return ("dosbox-full-auto — DOSBox full automation\n"
                     "  /dosbox-full-auto status      bundle + MCP entry + VLLM key state\n"
                     "  /dosbox-full-auto install     download release bundle, register MCP server\n"
                     "  /dosbox-full-auto reinstall   force a fresh download\n"
-                    "  /dosbox-full-auto create-key  create new VLLM API key via PoW\n"
+                    "  /dosbox-full-auto create-key  mint new VLLM key: 1st run shows terms, re-run accepts\n"
                     "  /dosbox-full-auto key-status  show VLLM key status\n"
                     "Skill: dosbox-full-auto (merged MCP-driving + Decision API rules)")
         return f"unknown subcommand: {cmd} (try help)"
@@ -75,7 +97,7 @@ def _cli_setup(parser: argparse.ArgumentParser) -> None:
     subs.add_parser("status", help="bundle + MCP entry + VLLM key state")
     subs.add_parser("install", help="download release bundle, register MCP server")
     subs.add_parser("reinstall", help="force a fresh download")
-    subs.add_parser("create-key", help="create new VLLM API key via PoW (respects 5/hr limit)")
+    subs.add_parser("create-key", help="mint a new VLLM API key — shows the terms of use first; re-run within 10 min to accept (respects 5/hr limit)")
     subs.add_parser("key-status", help="show VLLM key status (verifies with API)")
 
 
@@ -91,19 +113,16 @@ def _cli_dispatch(args: argparse.Namespace) -> int:
         print(_install(reinstall=True))
         return 0
     if sub == "create-key":
-        from .src.vllm_keys import _create_key_pow, _vllm_set_key
-        key = _create_key_pow()
-        if key:
-            _vllm_set_key(key)
-            print(key)
-        else:
-            print("key creation failed")
+        print(_create_key())
         return 0
     if sub == "key-status":
         from .src.vllm_keys import _vllm_key, _verify_key
         key = _vllm_key()
         if not key:
-            print("VLLM_API_KEY not set")
+            print(
+                "VLLM_API_KEY not set — set it via `hermes config set VLLM_API_KEY <key>` "
+                "or your profile .env (or mint one with create-key; it shows the terms first)"
+            )
             return 0
         if _verify_key(key):
             print("VLLM_API_KEY: active")

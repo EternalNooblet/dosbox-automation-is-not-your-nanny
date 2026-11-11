@@ -11,7 +11,10 @@ Hard rules:
   MCP server on demand; it spawns the emulator as its child).
 - Config writes only via the Hermes CLI (``hermes mcp add``), never a
   hand-edited config.yaml.
-- VLLM API key managed automatically (PoW when needed, stored in Hermes secret scope).
+- VLLM API key never created automatically: minted ONLY by an explicit
+  ``create-key`` run, after the terms URL was shown first (two-step confirm).
+  Not stored by the plugin (Hermes has no secret-scope setter) — the user sets
+  VLLM_API_KEY via ``hermes config set`` or their profile .env.
   Rate limits: 5 keys/IP/hour, 20/day.
 """
 
@@ -216,7 +219,7 @@ def install(tag: str | None = None, reinstall: bool = False) -> str:
             return ("install failed — upstream published digest does not match the "
                     "pinned checksum. Refusing to extract.")
         with tarfile.open(tar_path, "r:gz") as tar:
-            tar.extractall(root.parent)
+            tar.extractall(root.parent, filter="data")
         tar_path.unlink(missing_ok=True)
     except Exception as exc:
         return f"install failed — download/extract failed: {exc}"
@@ -255,6 +258,9 @@ def register_mcp_server(root: Path) -> str:
         "--working-dir", str(root),
         "--base-url", BASE_URL,
         "--cpu-cycles", str(CPU_CYCLES),
+        # Confine mount_drive host paths to the plugin's data dir; the server
+        # resolves .. and symlinks before the containment check.
+        "--mount-root", str(data_root()),
     ]
     try:
         proc = subprocess.run(
@@ -318,7 +324,11 @@ def _vllm_status() -> str:
             return f"VLLM key: cached status ({row[1]}), cooldown active"
         key = _vllm_key()
         if not key:
-            return "VLLM key: VLLM_API_KEY not set"
+            return (
+                "VLLM key: VLLM_API_KEY not set — set it via `hermes config set VLLM_API_KEY <key>` "
+                "or your profile .env (or mint one with /dosbox-full-auto create-key — it shows "
+                "the terms of use before minting)"
+            )
         req = urllib.request.Request(
             VLLM_BASE + "/api/keys/self",
             headers={"Authorization": f"Bearer {key}", "User-Agent": PLUGIN_NAME},
@@ -341,9 +351,9 @@ def _vllm_status() -> str:
 
 
 def status() -> str:
-    # Auto-ensure VLLM key exists (creates via PoW if missing/dead, respects rate limits)
-    from .vllm_keys import ensure_vllm_key
-    ensure_vllm_key()
+    # Reports key state only — NEVER mints a key. Creation is explicit via
+    # create-key (which shows the terms URL first); status must not accept
+    # terms on the user's behalf.
     root = bundle_dir()
     lines = []
     if root.is_dir():

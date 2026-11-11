@@ -1,4 +1,9 @@
-"""VLLM API key management — auto-create via PoW, store in Hermes secret scope."""
+"""VLLM API key management — explicit create-key only (terms URL shown first),
+creation via PoW. Hermes has no secret-scope SETTER (agent.secret_scope has
+get_secret but no set_secret), so the plugin never stores a key: after minting,
+the user is told to set VLLM_API_KEY via `hermes config set` or their profile
+.env. Nothing here creates a key on its own; the caller (the create-key
+command) drives the terms confirmation."""
 
 from __future__ import annotations
 
@@ -13,10 +18,15 @@ from pathlib import Path
 PLUGIN_NAME = "dosbox-full-auto"
 VLLM_BASE = "https://decision.vllm-sr.ai"
 
+TERMS_URL = VLLM_BASE + "/terms"
+
 # Rate limits: 5 keys/IP/hour, 20/day
 VLLM_KEY_CREATE_COOLDOWN_S = 720  # 12 min between attempts (5/hr)
 VLLM_KEY_DAILY_LIMIT = 20
 VLLM_DAILY_WINDOW_S = 24 * 3600
+
+# Window in which the confirm step (second create-key run) may mint
+TERMS_CONFIRM_WINDOW_S = 600
 
 
 def _db():
@@ -39,22 +49,15 @@ def _db():
 
 
 def _vllm_key() -> str:
-    """Read VLLM_API_KEY from Hermes secret scope."""
+    """Read VLLM_API_KEY via the Hermes secret scope. get_secret exists and
+    reads the active profile's scope (.env + secret sources, os.environ only
+    when not multiplexing); there is deliberately no set_secret in that module,
+    so keys are read-only here — never stored by the plugin."""
     try:
         from agent.secret_scope import get_secret
         return get_secret("VLLM_API_KEY") or ""
     except Exception:
         return ""
-
-
-def _vllm_set_key(key: str) -> bool:
-    """Store VLLM_API_KEY in Hermes secret scope."""
-    try:
-        from agent.secret_scope import set_secret
-        set_secret("VLLM_API_KEY", key)
-        return True
-    except Exception:
-        return False
 
 
 def _verify_key(key: str) -> bool:
@@ -74,9 +77,10 @@ def _verify_key(key: str) -> bool:
 def _create_key_pow() -> str | None:
     """Create new key via PoW: challenge -> nonce -> submit -> verify."""
     try:
-        # 1. Get challenge
+        # 1. Get challenge — endpoint requires POST (no body); GET 405s.
         req = urllib.request.Request(
             VLLM_BASE + "/api/keys/challenge",
+            data=b"",
             headers={"User-Agent": PLUGIN_NAME},
         )
         with urllib.request.urlopen(req, timeout=30) as res:
@@ -115,16 +119,44 @@ def _create_key_pow() -> str | None:
         return None
 
 
-def ensure_vllm_key() -> str:
-    """Ensure a working VLLM_API_KEY exists in secret scope.
-    Creates new one via PoW if missing/dead. Respects rate limits (5/hr, 20/day).
-    Returns the key or empty string on failure."""
-    # Check existing key
-    key = _vllm_key()
-    if key and _verify_key(key):
-        return key
+def terms_gate_pending() -> bool:
+    """True if the terms URL was shown recently (the confirm half of create-key).
+    State kept in plugin_db() — per profile, like every other plugin secret."""
+    try:
+        db = _db()
+        db.execute(
+            "CREATE TABLE IF NOT EXISTS terms_gate (id INTEGER PRIMARY KEY, shown_at REAL)"
+        )
+        row = db.execute("SELECT shown_at FROM terms_gate WHERE id = 1").fetchone()
+        return bool(row and row[0] and (time.time() - row[0]) < TERMS_CONFIRM_WINDOW_S)
+    except Exception:
+        return False
 
-    # Check creation cooldowns
+
+def terms_gate_show() -> None:
+    """Record that the terms URL has just been shown to the user."""
+    try:
+        db = _db()
+        db.execute(
+            "CREATE TABLE IF NOT EXISTS terms_gate (id INTEGER PRIMARY KEY, shown_at REAL)"
+        )
+        db.execute(
+            "INSERT OR REPLACE INTO terms_gate (id, shown_at) VALUES (1, ?)",
+            (time.time(),),
+        )
+        db.commit()
+    except Exception:
+        pass
+
+
+def create_vllm_key() -> str:
+    """Mint a NEW VLLM_API_KEY via PoW; the plugin does NOT store it (agent.secret_scope
+    has no set_secret — writing a key is the user's job: `hermes config set` or .env).
+    Only ever called from the explicit create-key command, and only after
+    terms_gate_pending() confirms the terms URL was shown to the user.
+    Enforces the 5/hr and 20/day creation limits locally before asking.
+    Returns the new key, or empty string if limits/refusal blocked it."""
+    # Mint regardless of an existing key — create-key means "new key".
     db = _db()
     db.execute(
         "CREATE TABLE IF NOT EXISTS vllm_key_created "
@@ -151,7 +183,6 @@ def ensure_vllm_key() -> str:
     # Create new key
     new_key = _create_key_pow()
     if new_key:
-        _vllm_set_key(new_key)
         db.execute(
             "INSERT OR REPLACE INTO vllm_key_created (id, created_at) VALUES (1, ?)",
             (now,)

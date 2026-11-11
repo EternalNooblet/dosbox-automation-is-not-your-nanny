@@ -81,9 +81,8 @@ The server can automatically launch and configure dosbox-automation:
 - **Library path** — Auto-finds `libiir.so` and sets `LD_LIBRARY_PATH`
 - **Webserver config** — Enables REST API with defaults:
   - `webserver_enabled=on`
-  - `webserver_bind_address=0.0.0.0`
+  - `webserver_bind_address=127.0.0.1`
   - `webserver_port=8386`
-  - `webserver_allow_remote=on`
   - `webserver_token_file=off`
 - **Health checks** — Waits up to 30s for API readiness
 - **Cleanup** — Graceful shutdown on MCP server exit
@@ -510,7 +509,25 @@ dosbox-mcp
 
 ### Permission denied on disk swap
 
-The API requires `webserver_allow_remote=true` in dosbox config for non-localhost mounts, and mounts must be within allowed paths.
+Nothing reads `webserver_allow_remote` anymore and the API only ever talks to
+localhost, so the setting is inert. What actually denies a disk swap:
+
+- **The mount lock.** While it is held, swaps fail with 403. Read the state
+  with `GET /api/v1/mount/lock`, and clear it with `POST /api/v1/mount/lock`
+  and body `{"locked": false}`.
+- **System paths.** The path whitelist was removed: any existing directory
+  mounts, but host system paths are still refused — on Unix `/`, `/bin`,
+  `/boot`, `/dev`, `/etc`, `/lib`, `/opt`, `/proc`, `/root`, `/sbin`,
+  `/usr`, `/var` (the bare `/` matches only itself).
+- **`mount_drive`'s root check.** The MCP tool verifies `host_path` before
+  typing anything: absolute, existing, no control characters (a newline in
+  the path would execute extra DOS commands), and — after resolving `..`
+  and symlinks — inside the configured root, default the plugin data dir.
+  Point it elsewhere with `--mount-root`, `mount_root` in the config file,
+  or `DOSBOX_MCP_MOUNT_ROOT`; the rejection names the allowed root. The
+  same root confines `swap_disk` images and MOUNT lines typed through
+  `type_text`; MOUNTs from inside the guest (batches) are the only ones
+  the server cannot see.
 
 ---
 

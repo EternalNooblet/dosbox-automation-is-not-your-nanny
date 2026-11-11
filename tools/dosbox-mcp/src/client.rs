@@ -2,14 +2,17 @@ use crate::cfg::McpConfig;
 use crate::error::{McpError, Result};
 use reqwest::{Client, ClientBuilder, Response};
 use serde::de::DeserializeOwned;
+use std::path::PathBuf;
 use std::time::Duration;
-use tracing::{debug, error};
+use tracing::{debug, error, info, warn};
 
 #[derive(Clone)]
 pub struct DosBoxClient {
     client: Client,
     base_url: String,
     timeout: Duration,
+    // Canonicalized root confining mount_drive host paths (see cfg.rs).
+    mount_root: PathBuf,
 }
 
 impl DosBoxClient {
@@ -27,12 +30,22 @@ impl DosBoxClient {
             .map_err(McpError::Connection)?;
 
         let base_url = config.base_url.trim_end_matches('/').to_string();
+        let mount_root = effective_mount_root(config.mount_root);
+        info!("mount_drive host paths confined to: {:?}", mount_root);
 
         Ok(Self {
             client,
             base_url,
             timeout,
+            mount_root,
         })
+    }
+
+    /// The root mount_drive host paths must resolve under. Resolved once
+    /// here (dot-dot chains and symlinks folded) so per-call checks only
+    /// need to resolve the candidate.
+    pub fn mount_root(&self) -> PathBuf {
+        self.mount_root.clone()
     }
 
     /// Build the full URL for an API endpoint
@@ -174,4 +187,42 @@ impl DosBoxClient {
         self.get::<serde_json::Value>("/status").await?;
         Ok(())
     }
+}
+
+/// Root that confines mount_drive host paths: the owner-configured root
+/// (config file / DOSBOX_MCP_MOUNT_ROOT / --mount-root) if present,
+/// otherwise the plugin data directory. Canonicalized once here so the
+/// per-call check only resolves the candidate.
+pub fn effective_mount_root(configured: Option<PathBuf>) -> PathBuf {
+    let raw = if let Some(path) = configured {
+        path
+    } else {
+        return plugin_data_dir_or_unrestricted()
+    };
+    // A root that does not exist yet keeps its unresolved form; containment
+    // against it is still well-defined and MOUNT refuses missing directories
+    // anyway.
+    raw.canonicalize().unwrap_or_else(|_| raw)
+}
+
+/// Default mount root: the companion plugin's data directory, mirroring
+/// data_root()'s fallback chain — HERMES_HOME wins, else the OS HOME env
+/// plus "/.hermes" — then plugin-data/dosbox-full-auto. With neither
+/// variable set there is no plugin data dir to confine to: return "/"
+/// (unrestricted) and say so once.
+fn plugin_data_dir_or_unrestricted() -> PathBuf {
+    let hermes_home = std::env::var("HERMES_HOME").unwrap_or_default();
+    let plain = std::env::var("HOME").unwrap_or_default();
+    let home = if !hermes_home.is_empty() {
+        hermes_home
+    } else if !plain.is_empty() {
+        plain + "/.hermes"
+    } else {
+        "".to_string()
+    };
+    if home.is_empty() {
+        warn!("mount_root not configured and no HERMES_HOME/HOME to locate the plugin data dir; mount_drive is unrestricted");
+        return PathBuf::from("/");
+    }
+    PathBuf::from(home).join("plugin-data").join("dosbox-full-auto")
 }

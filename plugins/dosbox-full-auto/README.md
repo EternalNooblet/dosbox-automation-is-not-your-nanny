@@ -29,7 +29,7 @@ In a session:
 /dosbox-full-auto status        bundle + MCP entry + VLLM key state
 /dosbox-full-auto install       download bundle, register MCP server
 /dosbox-full-auto reinstall     force a fresh download
-/dosbox-full-auto create-key    create new VLLM API key via PoW (respects 5/hr limit)
+/dosbox-full-auto create-key    mint new VLLM key (1st run shows terms, re-run accepts)
 /dosbox-full-auto key-status    show VLLM key status (verifies with API)
 ```
 
@@ -54,17 +54,22 @@ Nothing is bundled in the plugin repo itself — this is a setup-time fetch, not
 a shipped payload (Hermes catalog rule 17), disclosed here per rule 13:
 
 - Network: GitHub API + release asset download at install time; Decision API
-  (`decision.vllm-sr.ai`) for visual checks. **VLLM API key managed automatically
-  via Hermes secret scope.** Key creation via PoW respects strict rate limits:
-  5 keys/IP/hour, 20/day (12 min cooldown between creations).
+  (`decision.vllm-sr.ai`) for visual checks. **VLLM API key is never created
+  automatically** — only an explicit `create-key` mints one: the first run shows
+  the terms of use (https://decision.vllm-sr.ai/terms), a second run accepts
+  (`accept_terms: true`) and creates via PoW. Key creation respects strict rate
+  limits: 5 keys/IP/hour, 20/day (12 min cooldown between creations).
 - Files: writes only under `<hermes home>/plugin-data/dosbox-full-auto/`
   (binaries, VERSION, plugin_db). No reads outside the plugin's own data and
   the one MCP config entry it registers via `hermes mcp add`.
 - Processes: registers a local stdio MCP server on port 8387; Hermes spawns
   it on demand and it spawns the emulator as its child. No background
   daemons, no telemetry.
-- Credentials: `VLLM_API_KEY` managed automatically via Hermes secret scope
-  (auto-created via PoW if missing/dead), sent as bearer token to Decision API only.
+- Credentials: `VLLM_API_KEY` read via the Hermes secret scope (get_secret only —
+  there is no setter), never stored by the plugin: created ONLY by an explicit
+  `create-key` (terms URL shown before any key is minted; nothing is auto-created),
+  which tells the user to persist it via `hermes config set` or their profile .env;
+  sent as bearer token to Decision API only.
 
 ## Why a bundle, not loose binaries
 
@@ -78,5 +83,5 @@ launcher sets `LD_LIBRARY_PATH` from the bundle dir.
 ## Requirements
 
 - Linux x86_64 or Windows x86_64.
-- **VLLM API key managed automatically** — created via PoW when needed, stored in Hermes secret scope. Strict rate limits: 5 keys/IP/hour, 20/day.
+- **VLLM API key is never auto-created** — mint it explicitly with `/dosbox-full-auto create-key` (first run shows https://decision.vllm-sr.ai/terms, re-run accepts); NOT stored by the plugin (Hermes has no secret-scope setter) — persist it yourself via `hermes config set` or your profile `.env`, otherwise every create-key run mints a fresh one. Strict rate limits: 5 keys/IP/hour, 20/day.
 - Ports: MCP on 8387 (the dev pair keeps 8386).

@@ -73,6 +73,12 @@ struct Args {
     /// X11 display to use (e.g., ":99" for Xvfb). If not set, uses offscreen SDL driver.
     #[arg(long, env = "DOSBOX_DISPLAY")]
     display: Option<String>,
+
+    /// Root that mount_drive host paths must resolve under after dot-dots
+    /// and symlinks. Default when unset: the plugin data directory
+    /// (<HERMES_HOME or HOME/.hermes>/plugin-data/dosbox-full-auto).
+    #[arg(long, env = "DOSBOX_MCP_MOUNT_ROOT")]
+    mount_root: Option<PathBuf>,
 }
 
 #[tokio::main]
@@ -126,6 +132,7 @@ async fn main() -> Result<()> {
         cpu_cycles: config.cpu_cycles.clone(),
         secure_mode: config.secure_mode,
         display: config.display.clone(),
+        mount_root: config.mount_root.clone(),
     })?);
 
     // Create and run the MCP server with stdio transport
@@ -179,6 +186,9 @@ fn load_config(args: Args) -> Result<McpConfig> {
     }
     if let Some(display) = args.display {
         config.display = Some(display);
+    }
+    if let Some(root) = args.mount_root {
+        config.mount_root = Some(root);
     }
 
     // Validate

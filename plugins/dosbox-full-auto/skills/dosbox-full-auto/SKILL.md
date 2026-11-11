@@ -59,6 +59,11 @@ per run). ~59 s circuit-breaker cooldowns: poll in <=20 s chunks, not a sleep.
 2. `kill <server_pid>` (`pgrep -af dosbox`) — the server must die to respawn.
 3. Any MCP call respawns server + emulator with identical flags.
 4. Mounts die with the emulator — remount and re-enter commands every respawn.
+5. `mount_drive`, `swap_disk` images, and MOUNT lines typed via `type_text`
+   reject paths outside the configured mount root (default: the plugin data
+   dir; checked after `..`/symlink resolution) — the rejection names the
+   root. Guard working as designed, not a bug: put game files under the
+   root instead.
 
 ## Graphics-mode workflow (vision+d3)
 
@@ -81,6 +86,8 @@ After launching a program, poll ~every 2 s for 10 s:
 `capture_frame(mode="raw", format="png", save_path=<scratch>)` then
 `python3 scripts/blackcheck.py <file>`. Any NOT_BLACK = UI alive, stop and
 report. BLACK for 10 s = restart flow, remount, re-run, watch again.
+`blackcheck.py` imports numpy + Pillow (PIL) — needs both installed; fails
+with an ImportError if either is missing.
 
 ## Memory reads — guardrails
 
@@ -98,8 +105,13 @@ report. BLACK for 10 s = restart flow, remount, re-run, watch again.
 ## Decision API (visual verification)
 
 Full detail: references/decision-api.md. Only model: `vllm-sr/d3-ultra`.
-Key: `${VLLM_API_KEY}`, managed automatically (created via PoW when missing/dead,
-stored in Hermes secret scope), verified lazily with a 24 h plugin_db() cooldown.
+Key: `${VLLM_API_KEY}`, never auto-created (status only reports state) — minted
+ONLY by an explicit `/dosbox-full-auto create-key`: the first run shows the terms
+of use (https://decision.vllm-sr.ai/terms) and creates nothing; a second run
+within 10 min accepts and creates via PoW. Not stored by the plugin (Hermes has
+no secret-scope setter) — the user must persist VLLM_API_KEY themselves via `hermes
+config set` or their profile .env; until set, every create-key run mints a fresh
+key. Read via get_secret only. Verified lazily with a 24 h plugin_db() cooldown.
 Rate limits strictly respected: 5 keys/IP/hour, 20/day (12 min cooldown between
 creations). Batch all questions about one input into ONE request; respect 429
 Retry-After with backoff + jitter; never send sensitive data (everything may be logged).
