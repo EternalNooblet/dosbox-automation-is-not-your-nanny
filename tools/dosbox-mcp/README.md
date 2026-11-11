@@ -6,7 +6,7 @@ Control DOSBox instances programmatically via Model Context Protocol. Works with
 
 [![Rust](https://img.shields.io/badge/rust-1.70+-orange.svg)](https://www.rust-lang.org)
 [![MCP](https://img.shields.io/badge/MCP-2024--11--05-blue.svg)](https://modelcontextprotocol.io)
-[![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-green.svg)](LICENSE)
+[![License: GPL-2.0](https://img.shields.io/badge/license-GPL--2.0-blue.svg)](../../LICENSE)
 
 ---
 
