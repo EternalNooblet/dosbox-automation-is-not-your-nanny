@@ -1,3 +1,6 @@
+# Changed from upstream dosbox-automation in this fork (this repo is a fork, not the original upstream project).
+# Last change to this file: 2026-11-02. Fork base commit: b9f24198a. Per-file history: git log -- <this file> in this repo.
+
 """Contract tests for the dosbox-automation webserver API.
 
 Every endpoint is exercised against a live headless DOSBox instance.

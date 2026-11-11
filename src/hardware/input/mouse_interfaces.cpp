@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // Copyright (C) 2026 dosbox-automation contributors
 
+// Changed from upstream dosbox-automation in this fork (this repo is a fork, not the original upstream project).
+// Last change to this file: 2026-11-02. Fork base commit: b9f24198a. Per-file history: git log -- <this file> in this repo.
+
 #include "private/mouse_interfaces.h"
 #include "mouse.h"
 #include "private/mouse_common.h"

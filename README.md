@@ -1,4 +1,7 @@
 <!-- License: GPL-2.0-or-later, as in the upstream project. -->
+<!-- This README was changed from the upstream README in this fork: last
+change 2026-11-11, fork base b9f24198a; full history: git log. Every file
+changed from upstream in this fork carries its own dated change note. -->
 
 # dosbox-automation — this is a custom FORK
 

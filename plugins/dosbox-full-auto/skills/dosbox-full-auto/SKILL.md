@@ -2,6 +2,11 @@
 name: dosbox-full-auto
 description: "Drive DOSBox via the dosbox-full-auto MCP server (tools mcp_dosbox_full_auto__*) and verify visuals with Vision LLM + Decision API (vllm-sr/d3-ultra). Use for any task touching the running DOSBox emulator or asking Decision API questions."
 ---
+<!--
+This file is part of the dosbox-automation-is-not-your-nanny fork
+License: GPL-2.0-or-later. This file is original work of the fork. Contact: EternalNooblet <67196335+EternalNooblet@users.noreply.github.com>.
+-->
+
 
 # DOSBox Full-Auto (merged skill)
 

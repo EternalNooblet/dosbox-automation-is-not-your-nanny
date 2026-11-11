@@ -1,3 +1,6 @@
+# Changed from upstream dosbox-automation in this fork (this repo is a fork, not the original upstream project).
+# Last change to this file: 2026-11-02. Fork base commit: b9f24198a. Per-file history: git log -- <this file> in this repo.
+
 cmake_minimum_required(VERSION 3.25)
 
 # The project only tests preset build configurations, so we use

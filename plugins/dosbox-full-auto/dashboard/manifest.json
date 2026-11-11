@@ -1,4 +1,5 @@
 {
+  "_license": "GPL-2.0-or-later; original work of the dosbox-automation-is-not-your-nanny fork; contact: EternalNooblet <67196335+EternalNooblet@users.noreply.github.com>",
   "name": "dosbox-full-auto",
   "label": "dosbox-full-auto",
   "description": "Live DOSBox video frame viewer",

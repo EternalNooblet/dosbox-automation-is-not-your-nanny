@@ -42,6 +42,9 @@
 // IMGMOUNT is deprecated. Use MOUNT for all media types.
 //
 
+// Changed from upstream dosbox-automation in this fork (this repo is a fork, not the original upstream project).
+// Last change to this file: 2026-11-10. Fork base commit: b9f24198a. Per-file history: git log -- <this file> in this repo.
+
 #include "mount_policy.h"
 #include "dos/archive/descriptor.h"
 #include "dos/archive/member_path.h"

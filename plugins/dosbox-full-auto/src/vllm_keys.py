@@ -1,3 +1,6 @@
+# This file is part of the dosbox-automation-is-not-your-nanny fork
+# License: GPL-2.0-or-later. This file is original work of the fork. Contact: EternalNooblet <67196335+EternalNooblet@users.noreply.github.com>.
+
 """VLLM API key management — explicit create-key only (terms URL shown first),
 creation via PoW. Hermes has no secret-scope SETTER (agent.secret_scope has
 get_secret but no set_secret), so the plugin never stores a key: after minting,

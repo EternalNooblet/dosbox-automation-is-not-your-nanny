@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText:  2002-2025 The DOSBox Team
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+// Changed from upstream dosbox-automation in this fork (this repo is a fork, not the original upstream project).
+// Last change to this file: 2026-11-02. Fork base commit: b9f24198a. Per-file history: git log -- <this file> in this repo.
+
 #ifndef DOSBOX_PAGING_H
 #define DOSBOX_PAGING_H
 

@@ -2,6 +2,9 @@
 // License: GPL-2.0-or-later. Contact: dosbox-automation-project@trinity2k.net
 //
 
+// Changed from upstream dosbox-automation in this fork (this repo is a fork, not the original upstream project).
+// Last change to this file: 2026-11-04. Fork base commit: b9f24198a. Per-file history: git log -- <this file> in this repo.
+
 #include "private/cpu.h"
 #include "bridge.h"
 #include "input.h"
