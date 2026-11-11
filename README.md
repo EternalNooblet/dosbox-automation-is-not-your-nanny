@@ -1,8 +1,8 @@
 <!-- License: GPL-2.0-or-later, as in the upstream project. -->
 
-# dosbox-automation — this is a FORK, not the original project
+# dosbox-automation — this is a custom FORK
 
-This repository is **not** the original dosbox-automation project. The original
+The original
 lives at [github.com/dosbox-automation/dosbox-automation](https://github.com/dosbox-automation/dosbox-automation)
 with its documentation at [dosbox-automation.org](https://www.dosbox-automation.org/).
 This fork may be **fundamentally different** from the original: code, tooling,
@@ -13,7 +13,7 @@ other way around.
 The original upstream README belongs to that repository; it is not reproduced
 here. What this fork changes is documented below.
 
-## Fork deltas — vs upstream dosbox-automation (`b9f24198a`)
+## Fork deltas — vs upstream dosbox-automation
 
 - `tools/dosbox-mcp`: new 55-tool Rust MCP server (auto-starts the emulator, pins cycles).
 - Webserver: token-free, no Host validation, bound to `0.0.0.0`, closes connections after each answer.
