@@ -12594,17 +12594,20 @@ msgstr ""
 "SUBST ist fehlgeschlagen; das Ziellaufwerk ist möglicherweise bereits vorhanden.\n"
 "Beachte, dass SUBST nur für lokale Laufwerke verwendet werden kann."
 
+# dosbox-automation-is-not-your-nanny fork change (2026-11-11, fork base b9f24198a):
+# startup banner renamed to dosbox-full-auto and the website URL removed; msgid kept in
+# sync with the changed English source, msgstr follows suit.
 #: src/shell/shell.cpp:702
 #, c-format, no-wrap
 msgctxt "SHELL_STARTUP_BANNER"
 msgid ""
-"[color=yellow]dosbox-automation [color=white]%s[reset] %s\n"
-"[color=white]https://www.dosbox-automation.org[reset][color=light-gray] - command list: [color=white]HELP[reset][color=light-gray], instructions: [color=white]MANUAL[reset]\n"
+"[color=yellow]dosbox-full-auto [color=white]%s[reset] %s\n"
+"[color=light-gray]Command list: [color=white]HELP[reset][color=light-gray], instructions: [color=white]MANUAL[reset]\n"
 "%s"
 "\n"
 msgstr ""
-"[color=yellow]dosbox-automation [color=white]%s[reset] %s\n"
-"[color=white]https://www.dosbox-automation.org[reset][color=light-gray] - Befehlsliste: [color=white]HELP[reset][color=light-gray], Handbuch: [color=white]MANUAL[reset]\n"
+"[color=yellow]dosbox-full-auto [color=white]%s[reset] %s\n"
+"[color=light-gray]Befehlsliste: [color=white]HELP[reset][color=light-gray], Handbuch: [color=white]MANUAL[reset]\n"
 "%s"
 "\n"
 

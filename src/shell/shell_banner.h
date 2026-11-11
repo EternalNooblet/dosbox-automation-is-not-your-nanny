@@ -1,6 +1,9 @@
 // This file is part of the dosbox-automation Project.
 // License: GPL-2.0-or-later. Contact: dosbox-automation-project@trinity2k.net
 //
+// Changed from upstream dosbox-automation in this fork (this repo is a fork, not
+// the original upstream project). Last change to this file: 2026-11-11. Fork base
+// commit: b9f24198a. Per-file history: git log -- <this file> in this repo.
 
 #ifndef DOSBOX_SHELL_BANNER_H
 #define DOSBOX_SHELL_BANNER_H
@@ -21,10 +24,8 @@ constexpr int ShellBannerMaxColumns = 78;
 // [color=white] sets the ANSI bright attribute which [color=light-gray]
 // alone does not clear; every bright-to-dim transition needs a [reset].
 constexpr char ShellBannerFormat[] =
-        "[color=yellow]" DOSBOX_PROJECT_NAME
-        " [color=white]%s[reset] %s\n"
-        "[color=white]https://www.dosbox-automation.org[reset][color=light-gray]"
-        " - command list: [color=white]HELP[reset][color=light-gray],"
+        "[color=yellow]dosbox-full-auto [color=white]%s[reset] %s\n"
+        "[color=light-gray]Command list: [color=white]HELP[reset][color=light-gray],"
         " instructions: [color=white]MANUAL[reset]\n"
         "%s"
         "\n";

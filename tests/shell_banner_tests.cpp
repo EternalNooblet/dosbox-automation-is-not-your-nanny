@@ -1,6 +1,9 @@
 // This file is part of the dosbox-automation Project.
 // License: GPL-2.0-or-later. Contact: dosbox-automation-project@trinity2k.net
 //
+// Changed from upstream dosbox-automation in this fork (this repo is a fork, not
+// the original upstream project). Last change to this file: 2026-11-11. Fork base
+// commit: b9f24198a. Per-file history: git log -- <this file> in this repo.
 
 #include "shell/shell_banner.h"
 
@@ -131,9 +134,9 @@ TEST(ShellBanner, rendered_lines_fit_the_column_limit)
 
 TEST(ShellBanner, first_line_carries_version_and_webserver_state)
 {
-	const auto enabled  = render_stripped_banner(ShellBannerFormat,
-                                                    ShellBannerWebserverEnabledTag,
-                                                    ShellBannerWorkbenchHint);
+	const auto enabled = render_stripped_banner(ShellBannerFormat,
+	                                            ShellBannerWebserverEnabledTag,
+	                                            ShellBannerWorkbenchHint);
 	const auto disabled = render_stripped_banner(ShellBannerFormat,
 	                                             ShellBannerWebserverDisabledTag,
 	                                             "");
@@ -141,21 +144,25 @@ TEST(ShellBanner, first_line_carries_version_and_webserver_state)
 	const auto enabled_line1  = split_lines(enabled).at(0);
 	const auto disabled_line1 = split_lines(disabled).at(0);
 
-	EXPECT_NE(enabled_line1.find(DOSBOX_PROJECT_NAME), std::string::npos);
+	EXPECT_NE(enabled_line1.find("dosbox-full-auto"), std::string::npos);
 	EXPECT_NE(enabled_line1.find(DOSBOX_GetDetailedVersion()), std::string::npos);
+	// The fork renames the app in the banner: the upstream name must not
+	// appear.
+	EXPECT_EQ(enabled_line1.find("dosbox-automation"), std::string::npos);
 	EXPECT_NE(enabled_line1.find("[webserver enabled]"), std::string::npos);
 	EXPECT_NE(disabled_line1.find("[webserver disabled]"), std::string::npos);
 }
 
-TEST(ShellBanner, second_line_carries_url_and_command_hints)
+TEST(ShellBanner, second_line_carries_command_hints_without_url)
 {
 	const auto banner = render_stripped_banner(ShellBannerFormat,
 	                                           ShellBannerWebserverEnabledTag,
 	                                           ShellBannerWorkbenchHint);
-	const auto line2  = split_lines(banner).at(1);
+	const auto line2 = split_lines(banner).at(1);
 
-	EXPECT_NE(line2.find("https://www.dosbox-automation.org"), std::string::npos);
-	EXPECT_NE(line2.find("command list: HELP"), std::string::npos);
+	// The fork drops the website line: no URL anywhere in the banner.
+	EXPECT_EQ(banner.find("http"), std::string::npos);
+	EXPECT_NE(line2.find("Command list: HELP"), std::string::npos);
 	EXPECT_NE(line2.find("instructions: MANUAL"), std::string::npos);
 }
 
@@ -203,10 +210,11 @@ TEST(ShellBanner, workbench_hint_names_command_and_key_when_enabled)
 	const auto banner = render_stripped_banner(ShellBannerFormat,
 	                                           ShellBannerWebserverEnabledTag,
 	                                           ShellBannerWorkbenchHint);
-	const auto lines  = split_lines(banner);
+	const auto lines = split_lines(banner);
 	ASSERT_GE(lines.size(), 3u);
 	EXPECT_NE(lines.at(2).find("WORKBENCH"), std::string::npos);
-	EXPECT_NE(lines.at(2).find(PRIMARY_MOD_NAME "+" MMOD2_NAME "+W"), std::string::npos);
+	EXPECT_NE(lines.at(2).find(PRIMARY_MOD_NAME "+" MMOD2_NAME "+W"),
+	          std::string::npos);
 }
 
 TEST(ShellBanner, no_hint_line_when_disabled)
@@ -214,7 +222,7 @@ TEST(ShellBanner, no_hint_line_when_disabled)
 	const auto banner = render_stripped_banner(ShellBannerFormat,
 	                                           ShellBannerWebserverDisabledTag,
 	                                           "");
-	const auto lines  = split_lines(banner);
+	const auto lines = split_lines(banner);
 	// line 1, line 2, then the closing blank line
 	ASSERT_EQ(lines.size(), 3u);
 	EXPECT_TRUE(lines.at(2).empty());
