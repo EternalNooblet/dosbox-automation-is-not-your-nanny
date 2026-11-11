@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 description = "MCP server for dosbox-automation REST API"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/Niko1221/dosbox-automation"
+repository = "https://github.com/EternalNooblet/dosbox-automation-is-not-your-nanny"
 
 [dependencies]
 rmcp = { version = "0.2", features = ["transport-io"] }

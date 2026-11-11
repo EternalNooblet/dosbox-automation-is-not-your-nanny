@@ -551,14 +551,6 @@ See [LICENSE](../../LICENSE) for the full license text.
 
 ---
 
-## Related Projects
-
-- **[dosbox-automation](https://github.com/Niko1221/dosbox-automation)** — The DOSBox fork with REST API
-- **[Model Context Protocol](https://modelcontextprotocol.io)** — MCP specification
-- **[rmcp](https://github.com/modelcontextprotocol/rust-sdk)** — Rust MCP SDK
-
----
-
 ## Support
 
 - **Issues**: [GitHub Issues](https://github.com/EternalNooblet/dosbox-automation-is-not-your-nanny/issues)
