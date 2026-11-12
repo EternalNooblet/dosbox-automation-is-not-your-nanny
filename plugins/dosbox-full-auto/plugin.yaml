@@ -2,7 +2,7 @@
 # License: GPL-2.0-or-later. This file is original work of the fork. Contact: EternalNooblet <67196335+EternalNooblet@users.noreply.github.com>.
 
 name: dosbox-full-auto
-version: "0.4.0"
+version: "0.5.0"
 description: "All-in-one solution for controlling DOSBox apps with your agent. Self-contained DOSBox-automation with built-in MCP server, registers in Hermes and exposes 55 tools via the dosbox-full-auto skill such as vision based mouse movement, live process memory reading and more."
 author: papa
 kind: standalone

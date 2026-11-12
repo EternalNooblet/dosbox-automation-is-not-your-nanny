@@ -58,8 +58,12 @@ def _bundle_topdir() -> str:
 # These digests are GitHub's published asset digests (sha256) for each release
 # tag. install() only installs a pinned tag and verifies the download against
 # this table BEFORE extracting — an unpinned tag is refused, never fetched.
-DEFAULT_TAG = "v1.0.6"
+DEFAULT_TAG = "v1.0.7"
 PINNED_DIGESTS = {
+    "v1.0.7": {
+        "linux": "5754c6b72d8b27c65638ce50c5b7c7a77e22a9f3465908e1707cd6ffeb4b4c3a",
+        "windows": "138c596a91282ac1bac17fdbd803ddc5c5b8289c5755b1ce5236502516d6555f",
+    },
     "v1.0.6": {
         "linux": "8af4b45b61e8e99f56e074731634a186fb1fd714f433319f347d5319ed2ffa96",
         "windows": "a67db774dc1e4685955b919e0c7ffd0078ed031ad5c73cb28b0fbc1f7383b51c",
