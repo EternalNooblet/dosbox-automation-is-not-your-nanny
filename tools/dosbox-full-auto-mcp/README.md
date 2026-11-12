@@ -1,5 +1,5 @@
 <!--
-This file is part of the dosbox-automation-is-not-your-nanny fork
+This file is part of the dosbox-full-auto fork
 License: GPL-2.0-or-later. This file is original work of the fork. Contact: EternalNooblet <67196335+EternalNooblet@users.noreply.github.com>.
 -->
 
@@ -118,8 +118,8 @@ DosBoxInfo {
 ### Build from Source
 
 ```bash
-git clone https://github.com/EternalNooblet/dosbox-automation-is-not-your-nanny
-cd dosbox-automation-is-not-your-nanny/tools/dosbox-full-auto-mcp
+git clone https://github.com/EternalNooblet/dosbox-full-auto
+cd dosbox-full-auto/tools/dosbox-full-auto-mcp
 cargo build --release
 ```
 
@@ -558,5 +558,5 @@ See [LICENSE](../../LICENSE) for the full license text.
 
 ## Support
 
-- **Issues**: [GitHub Issues](https://github.com/EternalNooblet/dosbox-automation-is-not-your-nanny/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/EternalNooblet/dosbox-automation-is-not-your-nanny/discussions)
+- **Issues**: [GitHub Issues](https://github.com/EternalNooblet/dosbox-full-auto/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/EternalNooblet/dosbox-full-auto/discussions)

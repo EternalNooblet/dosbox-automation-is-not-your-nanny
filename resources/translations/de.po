@@ -12594,7 +12594,7 @@ msgstr ""
 "SUBST ist fehlgeschlagen; das Ziellaufwerk ist möglicherweise bereits vorhanden.\n"
 "Beachte, dass SUBST nur für lokale Laufwerke verwendet werden kann."
 
-# dosbox-automation-is-not-your-nanny fork change (2026-11-11, fork base b9f24198a):
+# dosbox-full-auto fork change (2026-11-11, fork base b9f24198a):
 # startup banner renamed to dosbox-full-auto and the website URL removed; msgid kept in
 # sync with the changed English source, msgstr follows suit.
 #: src/shell/shell.cpp:702

@@ -1,5 +1,5 @@
 <!--
-This file is part of the dosbox-automation-is-not-your-nanny fork
+This file is part of the dosbox-full-auto fork
 License: GPL-2.0-or-later. This file is original work of the fork. Contact: EternalNooblet <67196335+EternalNooblet@users.noreply.github.com>.
 -->
 
@@ -60,8 +60,8 @@ cargo --version
 ## 2. Clone Repository
 
 ```bash
-git clone https://github.com/EternalNooblet/dosbox-automation-is-not-your-nanny.git
-cd dosbox-automation-is-not-your-nanny
+git clone https://github.com/EternalNooblet/dosbox-full-auto.git
+cd dosbox-full-auto
 ```
 
 ---
@@ -157,7 +157,7 @@ Run it with zero arguments — auto-start handles everything:
 ```bash
 # From the repo root (text mode; binary found in ./build/release-linux/,
 # libiir LD_LIBRARY_PATH set for the child automatically):
-/home/papa/dosbox-automation-is-not-your-nanny/tools/dosbox-full-auto-mcp/target/release/dosbox-full-auto-mcp
+/home/papa/dosbox-full-auto/tools/dosbox-full-auto-mcp/target/release/dosbox-full-auto-mcp
 ```
 
 For graphical DOS apps, start Xvfb and set `display = ":99"` in `~/.config/dosbox-full-auto-mcp/config.toml` (section 6) — no CLI flags needed.
@@ -173,7 +173,7 @@ Add to Hermes MCP config (e.g., `~/.hermes/mcp_servers.json`) with no arguments:
 {
   "mcpServers": {
     "dosbox-full-auto-mcp": {
-      "command": "/home/papa/dosbox-automation-is-not-your-nanny/tools/dosbox-full-auto-mcp/target/release/dosbox-full-auto-mcp",
+      "command": "/home/papa/dosbox-full-auto/tools/dosbox-full-auto-mcp/target/release/dosbox-full-auto-mcp",
       "args": []
     }
   }
@@ -183,7 +183,7 @@ Add to Hermes MCP config (e.g., `~/.hermes/mcp_servers.json`) with no arguments:
 If Hermes spawns the server outside the repo root, install the binary where auto-start can find it from any working directory:
 
 ```bash
-ln -s /home/papa/dosbox-automation-is-not-your-nanny/build/release-linux/dosbox-automation ~/.local/bin/dosbox-automation
+ln -s /home/papa/dosbox-full-auto/build/release-linux/dosbox-automation ~/.local/bin/dosbox-automation
 ```
 
 ---
@@ -263,7 +263,7 @@ Should return the MOUNT result line in `screen_text`.
 ## 14. One-Command Setup (After Prerequisites)
 
 ```bash
-cd dosbox-automation-is-not-your-nanny && \
+cd dosbox-full-auto && \
 cmake --preset release-linux -DOPT_FETCH_DEPS=ON && \
 cmake --build build/release-linux -- -j$(nproc) && \
 cd tools/dosbox-full-auto-mcp && cargo build --release && \

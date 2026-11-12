@@ -1,5 +1,5 @@
 <!--
-This file is part of the dosbox-automation-is-not-your-nanny fork
+This file is part of the dosbox-full-auto fork
 License: GPL-2.0-or-later. This file is original work of the fork. Contact: EternalNooblet <67196335+EternalNooblet@users.noreply.github.com>.
 -->
 
@@ -18,7 +18,7 @@ https://github.com/user-attachments/assets/fd7eee46-4801-45e0-a56f-bfe11b9b0dc4
 
 
 Downloads the self-contained release bundle from
-[dosbox-automation-is-not-your-nanny](https://github.com/EternalNooblet/dosbox-automation-is-not-your-nanny)
+[dosbox-full-auto](https://github.com/EternalNooblet/dosbox-full-auto)
 releases, extracts it into the plugin data dir, registers it as the
 `dosbox-full-auto` MCP server on port 8387, and ships the merged driving skill.
 
@@ -48,7 +48,7 @@ server binary itself was rebuilt.
 
 Setup (`install`) fetches ONE native bundle — about 16.5 MB — for the current
 platform from the official GitHub Releases of the upstream project
-[dosbox-automation-is-not-your-nanny](https://github.com/EternalNooblet/dosbox-automation-is-not-your-nanny/releases)
+[dosbox-full-auto](https://github.com/EternalNooblet/dosbox-full-auto/releases)
 (tag `v1.0.3`), verifies its SHA256 against the pinned digest in
 `src/install.py` (`PINNED_DIGESTS`, the digest GitHub publishes for the asset),
 and only then extracts and executes it. Unpinned release tags are refused —
