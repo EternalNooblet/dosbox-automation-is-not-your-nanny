@@ -3,7 +3,7 @@
 change 2026-11-11, fork base b9f24198a; full history: git log. Every file
 changed from upstream in this fork carries its own dated change note. -->
 
-# dosbox-automation — this is a custom FORK
+# dosbox-full-auto — this is a custom FORK
 
 The original
 lives at [github.com/dosbox-automation/dosbox-automation](https://github.com/dosbox-automation/dosbox-automation)
