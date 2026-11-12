@@ -58,15 +58,19 @@ def _bundle_topdir() -> str:
 # These digests are GitHub's published asset digests (sha256) for each release
 # tag. install() only installs a pinned tag and verifies the download against
 # this table BEFORE extracting — an unpinned tag is refused, never fetched.
-DEFAULT_TAG = "v1.0.4"
+DEFAULT_TAG = "v1.0.6"
 PINNED_DIGESTS = {
-    "v1.0.3": {
-        "linux": "61ea3df52057628873c1ded6d3a65677a1fe00b6f27e9765e804dcc2aa38e486",
-        "windows": "d481df74fb3ef09ced47c5168849bd25b1fea2a14c4664d6d42a8993f0c855a5",
+    "v1.0.6": {
+        "linux": "8af4b45b61e8e99f56e074731634a186fb1fd714f433319f347d5319ed2ffa96",
+        "windows": "a67db774dc1e4685955b919e0c7ffd0078ed031ad5c73cb28b0fbc1f7383b51c",
     },
     "v1.0.4": {
         "linux": "05791369e3297c15245be128258b4a541d96588cbb5f552b499fd8fb38b5d1c7",
         "windows": "b801c710422f80748b62acffa75c3712ce72736522165fa18d79fa47f4729f4f",
+    },
+    "v1.0.3": {
+        "linux": "61ea3df52057628873c1ded6d3a65677a1fe00b6f27e9765e804dcc2aa38e486",
+        "windows": "d481df74fb3ef09ced47c5168849bd25b1fea2a14c4664d6d42a8993f0c855a5",
     },
     "v1.0.2": {
         "linux": "3d7ade5d836a1e12e4c399a8b7d5065fead0620a4104bdf688a8c580004f8d47",
