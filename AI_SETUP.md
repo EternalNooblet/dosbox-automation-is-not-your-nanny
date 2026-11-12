@@ -88,9 +88,9 @@ cargo build --release
 
 ---
 
-## 5. Configure Primary Config (Mount Policy)
+### 5. Configure Primary Config (Mount Policy)
 
-There is no mount whitelist. The mount policy refuses system paths and symlinks to them, and non-directories; any other existing directory may be mounted. The primary config file at:
+There is no mount whitelist by default. The mount policy refuses system paths and symlinks to them, and non-directories; any other existing directory may be mounted. The primary config file at:
 ```
 ~/.config/dosbox-automation/dosbox-automation.conf
 ```
@@ -107,6 +107,14 @@ EOF
 ```
 
 **Replace `/path/to/your/project/root`** with the actual directory containing your DOS programs/disk images. Multiple paths separated by `;`.
+
+To enable the mount whitelist (confine MOUNT to specific roots), add to the `[webserver]` section:
+```
+mount_allowed_bases = /path/to/allowed/root1;/path/to/allowed/root2
+mount_allowed_image_roots = /path/to/image/root1;/path/to/image/root2
+```
+
+The conf anchor (parent directory of the last `-conf` file) also counts as an allowed root.
 
 ---
 
@@ -246,6 +254,7 @@ Should return the MOUNT result line in `screen_text`.
 | dosbox-full-auto-mcp binary | `tools/dosbox-full-auto-mcp/target/release/dosbox-full-auto-mcp` |
 | Primary mount config | `~/.config/dosbox-automation/dosbox-automation.conf` |
 | dosbox-full-auto-mcp config | `~/.config/dosbox-full-auto-mcp/config.toml` |
+| Default mount root | `~/.hermes/plugin-data/dosbox-full-auto/drives/` |
 | Xvfb display | `:99` (if used) |
 | MCP server URL | `http://localhost:8386` |
 

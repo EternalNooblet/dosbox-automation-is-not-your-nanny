@@ -33,7 +33,9 @@ def _install(*, tag: str | None = None, reinstall: bool = False) -> str:
 def _create_key() -> str:
     """Explicit key minting ONLY — never implicit (status must not do this).
     Two-step: the first run shows the terms URL and creates nothing; a second,
-    explicit create-key within TERMS_CONFIRM_WINDOW_S accepts and mints."""
+    explicit create-key within TERMS_CONFIRM_WINDOW_S accepts and mints.
+    This function is called from the CLI path (hermes dosbox-full-auto create-key).
+    Returns the key so the CLI can print it."""
     from .src.vllm_keys import TERMS_URL, terms_gate_pending, terms_gate_show, create_vllm_key
 
     if not terms_gate_pending():
@@ -44,13 +46,7 @@ def _create_key() -> str:
                 "again to mint the key.")
     key = create_vllm_key()
     if key:
-        return (
-            "terms accepted; a new key was created, but it is NOT stored by the plugin "
-            "(Hermes has no secret-scope setter) — set it yourself: `hermes config set "
-            "VLLM_API_KEY <key>` or add VLLM_API_KEY=<key> to your profile .env. "
-            "Until it is set, status reports it unset and every create-key run mints a fresh one "
-            "(burns quota)."
-        )
+        return key
     return "key creation failed (rate limits 5/hr, 20/day, or PoW submission refused)"
 
 
@@ -72,14 +68,17 @@ def _handle_slash(raw_args: str) -> str | None:
         if cmd == "status":
             return _status()
         if cmd == "create-key":
-            return _create_key()
+            return ("Key minting is done via the terminal CLI to avoid burning quota silently.\n"
+                    "Run: `hermes dosbox-full-auto create-key`\n"
+                    "First run shows the terms of use; re-run within 10 minutes to accept and mint.")
         if cmd == "key-status":
             from .src.vllm_keys import _vllm_key, _verify_key
             key = _vllm_key()
             if not key:
                 return (
                     "VLLM_API_KEY not set — set it via `hermes config set VLLM_API_KEY <key>` "
-                    "or your profile .env (or mint one with create-key; it shows the terms first)"
+                    "or your profile .env (or mint one with `hermes dosbox-full-auto create-key`; "
+                    "it shows the terms first)"
                 )
             return "VLLM_API_KEY: active" if _verify_key(key) else "VLLM_API_KEY: invalid/dead"
         if cmd in ("help", "-h", "--help"):
@@ -87,7 +86,7 @@ def _handle_slash(raw_args: str) -> str | None:
                     "  /dosbox-full-auto status      bundle + MCP entry + VLLM key state\n"
                     "  /dosbox-full-auto install     download release bundle, register MCP server\n"
                     "  /dosbox-full-auto reinstall   force a fresh download\n"
-                    "  /dosbox-full-auto create-key  mint new VLLM key: 1st run shows terms, re-run accepts\n"
+                    "  /dosbox-full-auto create-key  mint new VLLM key (use terminal CLI: `hermes dosbox-full-auto create-key`)\n"
                     "  /dosbox-full-auto key-status  show VLLM key status\n"
                     "Skill: dosbox-full-auto (merged MCP-driving + Decision API rules)")
         return f"unknown subcommand: {cmd} (try help)"

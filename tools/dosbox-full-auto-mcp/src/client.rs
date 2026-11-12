@@ -210,7 +210,7 @@ pub fn effective_mount_root(configured: Option<PathBuf>) -> PathBuf {
 
 /// Default mount root: the companion plugin's data directory, mirroring
 /// data_root()'s fallback chain — HERMES_HOME wins, else the OS HOME env
-/// plus "/.hermes" — then plugin-data/dosbox-full-auto. With neither
+/// plus "/.hermes" — then plugin-data/dosbox-full-auto/drives. With neither
 /// variable set there is no plugin data dir to confine to: return "/"
 /// (unrestricted) and say so once.
 fn plugin_data_dir_or_unrestricted() -> PathBuf {
@@ -227,5 +227,5 @@ fn plugin_data_dir_or_unrestricted() -> PathBuf {
         warn!("mount_root not configured and no HERMES_HOME/HOME to locate the plugin data dir; mount_drive is unrestricted");
         return PathBuf::from("/");
     }
-    PathBuf::from(home).join("plugin-data").join("dosbox-full-auto")
+    PathBuf::from(home).join("plugin-data").join("dosbox-full-auto").join("drives")
 }

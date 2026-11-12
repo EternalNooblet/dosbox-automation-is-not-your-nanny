@@ -103,6 +103,13 @@ def data_root() -> Path:
     return root
 
 
+def drives_root() -> Path:
+    """<hermes home>/plugin-data/dosbox-full-auto/drives/ — the mount root."""
+    root = data_root() / "drives"
+    root.mkdir(parents=True, exist_ok=True)
+    return root
+
+
 def bundle_dir() -> Path:
     import sys
     arch = "windows-x86_64" if sys.platform.startswith("win") else "linux-x86_64"
@@ -269,9 +276,9 @@ def register_mcp_server(root: Path) -> str:
         "--working-dir", str(root),
         "--base-url", BASE_URL,
         "--cpu-cycles", str(CPU_CYCLES),
-        # Confine mount_drive host paths to the plugin's data dir; the server
+        # Confine mount_drive host paths to the plugin's drives/ subdir; the server
         # resolves .. and symlinks before the containment check.
-        "--mount-root", str(data_root()),
+        "--mount-root", str(drives_root()),
     ]
     try:
         proc = subprocess.run(

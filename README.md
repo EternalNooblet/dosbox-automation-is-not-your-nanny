@@ -25,7 +25,8 @@ here. What this fork changes is documented below.
 - Input: burst-serialized with 409 retry, key aliases (`enter`, `esc`, …), `MOUSE_Inject*` + warp-as-delta.
 - New endpoint `GET /input/mouse`: last injected cursor position.
 - Registers: `eip`/`flags` writable, case-insensitive; cycles pinned for real+protected mode.
-- Mount policy: whitelist removed (any existing dir mounts, system paths still refused); mount lock unlockable.
+- Mount policy: whitelist re-enabled for webserver mode — paths must be under conf anchor or `mount_allowed_bases`/`mount_allowed_image_roots` from primary config; mount lock unlockable.
+- Default mount root for MCP server is `~/.hermes/plugin-data/dosbox-full-auto/drives/` (created at install), keeping binaries outside the mountable tree.
 - Lua script load accepts JSON; `free_memory`/`allocate_memory` return JSON instead of an empty body.
 - Headless launcher: repo-relative binary search, auto `libiir.so`, offscreen SDL, MT32EMU off, attaches to running instance.
 - Docs: `AI_SETUP.md` (CachyOS/Arch) and `tools/dosbox-full-auto-mcp/docs/`.

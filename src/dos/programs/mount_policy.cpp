@@ -398,8 +398,8 @@ DriveConstructionHookFn drive_construction_hook = nullptr;
 
 static MountVerdict ValidateDirectoryMountImpl(
         const std::filesystem::path& raw_path,
-        const std::filesystem::path& /*conf_anchor*/,
-        const std::vector<std::filesystem::path>& /*allowed_bases*/, DirMountPolicy policy)
+        const std::filesystem::path& conf_anchor,
+        const std::vector<std::filesystem::path>& allowed_bases, DirMountPolicy policy)
 {
 	auto verdict = MountVerdict{};
 
@@ -451,9 +451,18 @@ static MountVerdict ValidateDirectoryMountImpl(
 		return verdict;
 	}
 
-	// WhitelistEnforced: mount anything (system paths and symlinks
-	// already rejected above). The allowed_bases/conf_anchor config
-	// settings are now no-ops.
+	// WhitelistEnforced: paths must be under conf_anchor or allowed_bases
+	auto all_roots = std::vector<std::filesystem::path>{};
+	if (!conf_anchor.empty()) {
+		all_roots.push_back(conf_anchor);
+	}
+	all_roots.insert(all_roots.end(), allowed_bases.begin(), allowed_bases.end());
+
+	if (all_roots.empty() || !IsUnderAnyRoot(*canonical, all_roots)) {
+		verdict.reason = DenyReason::OutsideWhitelist;
+		return verdict;
+	}
+
 	verdict.allowed = true;
 	verdict.reason  = DenyReason::None;
 	return verdict;
@@ -511,21 +520,20 @@ static MountVerdict ValidateHostFilePath(
 	// whenever something can type on the user's behalf. The conf anchor
 	// counts as a root: a conf that can autoexec a MOUNT of any image
 	// cannot be given less authority than its own autoexec.
-	// WHITELIST DISABLED: mount policy no longer restricts paths by origin.
-	// if (origin == MountOrigin::Api || IsInjectionPossible()) {
-	// 	auto all_roots = std::vector<std::filesystem::path>{};
-	// 	if (!conf_anchor.empty()) {
-	// 		all_roots.push_back(conf_anchor);
-	// 	}
-	// 	all_roots.insert(all_roots.end(),
-	// 	                 allowed_image_roots.begin(),
-	// 	                 allowed_image_roots.end());
-	//
-	// 	if (all_roots.empty() || !IsUnderAnyRoot(*canonical, all_roots)) {
-	// 		verdict.reason = DenyReason::OutsideWhitelist;
-	// 		return verdict;
-	// 	}
-	// }
+	if (origin == MountOrigin::Api || IsInjectionPossible()) {
+		auto all_roots = std::vector<std::filesystem::path>{};
+		if (!conf_anchor.empty()) {
+			all_roots.push_back(conf_anchor);
+		}
+		all_roots.insert(all_roots.end(),
+		                 allowed_image_roots.begin(),
+		                 allowed_image_roots.end());
+
+		if (all_roots.empty() || !IsUnderAnyRoot(*canonical, all_roots)) {
+			verdict.reason = DenyReason::OutsideWhitelist;
+			return verdict;
+		}
+	}
 
 	verdict.allowed = true;
 	verdict.reason  = DenyReason::None;
@@ -587,33 +595,139 @@ MountVerdict ValidateImagePath(const std::filesystem::path& raw_path,
 static PolicyPaths policy_paths = {};
 static bool policy_initialized  = false;
 
-PolicyPaths ParsePolicyConfig(const std::filesystem::path& /*config_path*/)
-{
-	// Mount policy no longer uses a whitelist. This function is kept
-	// for API compatibility but returns empty paths.
-	return PolicyPaths{};
+// Helper to expand environment variables like $HOME or ${HOME}
+static std::string ExpandEnvVars(const std::string& input) {
+    std::string result;
+    size_t i = 0;
+    while (i < input.size()) {
+        if (input[i] == '$') {
+            if (i + 1 < input.size() && input[i + 1] == '{') {
+                // ${VAR} form
+                size_t end = input.find('}', i + 2);
+                if (end != std::string::npos) {
+                    std::string var = input.substr(i + 2, end - i - 2);
+                    const char* val = std::getenv(var.c_str());
+                    if (val) result += val;
+                    i = end + 1;
+                    continue;
+                }
+            } else if (i + 1 < input.size() && std::isalpha(static_cast<unsigned char>(input[i + 1]))) {
+                // $VAR form
+                size_t end = i + 2;
+                while (end < input.size() &&
+                       (std::isalnum(static_cast<unsigned char>(input[end])) || input[end] == '_')) {
+                    ++end;
+                }
+                std::string var = input.substr(i + 1, end - i - 1);
+                const char* val = std::getenv(var.c_str());
+                if (val) result += val;
+                i = end;
+                continue;
+            }
+        }
+        result += input[i];
+        ++i;
+    }
+    return result;
 }
 
-void InitPolicyConfig(const std::filesystem::path& /*primary_config_path*/)
+PolicyPaths ParsePolicyConfig(const std::filesystem::path& config_path)
 {
-	// Mount policy no longer uses a whitelist. This function is kept
-	// for API compatibility.
-	policy_paths       = PolicyPaths{};
+	PolicyPaths result;
+
+	// Read mount_allowed_bases and mount_allowed_image_roots from [webserver] section
+	// Values are semicolon-separated lists of paths. Empty entries are ignored.
+	// Cap at 5 entries per list (excess entries are dropped).
+	// Environment variables like $HOME or ${HOME} are expanded.
+	auto read_list = [&](const std::string& key) -> std::vector<std::filesystem::path> {
+		std::vector<std::filesystem::path> paths;
+		if (!std::filesystem::exists(config_path)) {
+			return paths;
+		}
+
+		// Simple INI parsing for the [webserver] section
+		std::ifstream file(config_path);
+		if (!file.is_open()) {
+			return paths;
+		}
+
+		bool in_webserver = false;
+		std::string line;
+		while (std::getline(file, line)) {
+			// Trim
+			auto ltrim = [](std::string& s) {
+				size_t j = 0;
+				while (j < s.size() && std::isspace(static_cast<unsigned char>(s[j]))) ++j;
+				s.erase(0, j);
+			};
+			auto rtrim = [](std::string& s) {
+				while (!s.empty() && std::isspace(static_cast<unsigned char>(s.back()))) s.pop_back();
+			};
+			ltrim(line);
+			rtrim(line);
+
+			if (line.empty() || line[0] == '#' || line[0] == ';') continue;
+
+			if (line[0] == '[') {
+				in_webserver = (line.find("[webserver]") == 0);
+				continue;
+			}
+
+			if (!in_webserver) continue;
+
+			auto eq = line.find('=');
+			if (eq == std::string::npos) continue;
+
+			std::string k = line.substr(0, eq);
+			std::string v = line.substr(eq + 1);
+			ltrim(k); rtrim(k); ltrim(v); rtrim(v);
+
+			if (k == key) {
+				// Expand environment variables first
+				v = ExpandEnvVars(v);
+				// Split by semicolon, cap at 5 entries
+				size_t start = 0;
+				while (start <= v.size() && paths.size() < 5) {
+					size_t end = v.find(';', start);
+					if (end == std::string::npos) end = v.size();
+					if (end > start) {
+						std::string p = v.substr(start, end - start);
+						ltrim(p); rtrim(p);
+						if (!p.empty()) {
+							auto canon = CanonicalizeExisting(p);
+							if (canon) paths.push_back(*canon);
+						}
+					}
+					if (end == v.size()) break;
+					start = end + 1;
+				}
+				break;
+			}
+		}
+		return paths;
+	};
+
+	result.allowed_bases       = read_list("mount_allowed_bases");
+	result.allowed_image_roots = read_list("mount_allowed_image_roots");
+	return result;
+}
+
+void InitPolicyConfig(const std::filesystem::path& primary_config_path)
+{
+	policy_paths       = ParsePolicyConfig(primary_config_path);
 	policy_initialized = true;
 }
 
 const std::vector<std::filesystem::path>& AllowedBases()
 {
 	assert(policy_initialized);
-	static const std::vector<std::filesystem::path> empty;
-	return empty;
+	return policy_paths.allowed_bases;
 }
 
 const std::vector<std::filesystem::path>& AllowedImageRoots()
 {
 	assert(policy_initialized);
-	static const std::vector<std::filesystem::path> empty;
-	return empty;
+	return policy_paths.allowed_image_roots;
 }
 
 std::filesystem::path ConfAnchor()
