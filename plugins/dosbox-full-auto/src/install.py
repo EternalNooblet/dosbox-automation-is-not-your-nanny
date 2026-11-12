@@ -34,7 +34,7 @@ from pathlib import Path
 
 from .vllm_keys import _db, PLUGIN_NAME, VLLM_BASE
 
-GITHUB_REPO = "EternalNooblet/dosbox-automation-is-not-your-nanny"
+GITHUB_REPO = "EternalNooblet/dosbox-full-auto"
 BASE_URL = "http://localhost:8387"
 CPU_CYCLES = 30000
 VLLM_COOLDOWN_S = 24 * 3600
